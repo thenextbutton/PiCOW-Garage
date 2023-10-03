@@ -1,0 +1,374 @@
+esphome:
+  name: "picow-garage"
+  on_boot:
+    priority: -100.0 # https://esphome.io/components/esphome.html#on-boot
+    then:
+       
+
+rp2040:
+  board: rpipicow
+  framework:
+    # Required until https://github.com/platformio/platform-raspberrypi/pull/36 is merged
+    platform_version: https://github.com/maxgerhardt/platform-raspberrypi.git
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "<<api_encryption>>"
+
+ota:
+  password: "<<ota_password>>"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+  power_save_mode: none
+
+  # Enable fallback hotspot in case wifi connection fails
+  ap:
+    ssid: "Picow_Garage"
+    password: "<<ap_password>>"
+
+output:
+  # Built-in LED
+  - platform: gpio
+    pin:
+      number: 32  # 25 for Pico (non-W)
+      mode: output
+    id: LED
+
+# Pulse the onboard LED every x seconds, status light
+interval: 
+  - interval: 5sec
+    then:
+      - output.turn_on: LED
+      - delay: 100ms
+      - output.turn_off: LED
+
+
+# Garage Door Sensor
+binary_sensor:
+  - platform: template
+    name: "Garage Door"
+    id: garage_door
+    device_class: garage_door
+ 
+  - platform: template
+    name: "Garage Door Status"  
+    id: garage_door_status
+    device_class: problem
+
+  - platform: status
+    name: "Garage Door Power Plug Status"
+
+# Door Open
+  - platform: gpio
+    pin:
+      number: 5
+      mode:
+        input: true
+        pullup: true
+        output: false
+        open_drain: false
+        pulldown: false
+      inverted: false
+    id: garage_door_closed
+    internal: True # Will not publish to Home Assistant
+    publish_initial_state: True # sensor will publish its initial state at boot
+    on_state:
+      - delay: 5s #Alter to length of time it takes for the door to open/close (+5 seconds (for good luck))
+      - if:
+          condition:
+            and: #check to see if the closed sensor is off and and the open sensor is on (Garage Door Open)
+             - binary_sensor.is_on: garage_door_open
+             - binary_sensor.is_off: garage_door_closed
+          then:
+            - binary_sensor.template.publish:
+                id: garage_door_status 
+                state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
+            - binary_sensor.template.publish:
+                id: garage_door
+                state: ON # Turn ON the sensor with device class Garage door this means OPEN 
+      - if:
+          condition:
+            and: # Both senors are ON (the door is stuck between 2 sensors)
+             - binary_sensor.is_on: garage_door_open
+             - binary_sensor.is_on: garage_door_closed
+          then:   
+             - binary_sensor.template.publish:
+                id: garage_door_status
+                state: ON # The door is stuck between sensors, change the state to ON (PROBLEM DETECTED)
+
+
+# Door Closed
+  - platform: gpio
+    pin:
+      number: 6
+      mode:
+        input: true
+        pullup: true
+        output: false
+        open_drain: false
+        pulldown: false
+      inverted: false
+    id: garage_door_open
+    internal: True # Will not publish to Home Assistant  
+    publish_initial_state: True # sensor will publish its initial state at boot
+    on_state:
+      - delay: 5s #Alter to length of time it takes for the door to open/close (+5 seconds (for good luck))
+      - if:
+          condition:
+            and: #check to see if the open sensor is off and and the closed sensor is on (Garage Door Closed)
+             - binary_sensor.is_off: garage_door_open
+             - binary_sensor.is_on: garage_door_closed
+          then:
+            - binary_sensor.template.publish:
+                id: garage_door_status
+                state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
+            - binary_sensor.template.publish:
+                id: garage_door
+                state: OFF # Turn OFF the sensor with device class Garage door this means CLOSED 
+      - if:
+          condition:
+            and: # Both senors are ON (the door is stuck between 2 sensors)
+             - binary_sensor.is_on: garage_door_open
+             - binary_sensor.is_on: garage_door_closed
+          then:   
+             - binary_sensor.template.publish:
+                id: garage_door_status
+                state: ON # The door is stuck between sensors, change the state to ON (PROBLEM DETECTED)
+
+
+###### START >> EXTERNAL CONTROL BOX INPUTS ######
+
+# GPI for remote button press to OPEN garage door
+  - platform: gpio
+    pin:
+      number: 28
+      mode:
+        input: true
+        pullup: true
+      inverted: True
+    name: "Control Box Open"
+    id: control_box_open
+    filters:
+      - delayed_on_off: 500ms
+    on_press:
+      then:
+        if:
+          condition:
+            - binary_sensor.is_on: control_box_enabled
+          then:
+            - switch.turn_on: garagedoorOPEN_relay
+
+ # GPI for remote button press to CLOSE garage door   
+  - platform: gpio
+    pin:
+      number: 27
+      mode:
+        input: true
+        pullup: true
+      inverted: True
+    name: "Control Box Close"
+    id: control_box_close
+    filters:
+      - delayed_on_off: 500ms
+    on_press:
+      then:
+        if:
+          condition:
+            - binary_sensor.is_on: control_box_enabled
+          then:
+            - switch.turn_on: garagedoorCLOSE_relay
+
+# GPI for remote button press to STOP garage door
+  - platform: gpio
+    pin:
+      number: 26
+      mode:
+        input: true
+        pullup: true
+      inverted: True
+    name: "Control Box Stop"
+    id: control_box_stop
+    filters:
+      - delayed_on_off: 500ms
+    on_press:
+      then:
+        - switch.turn_on: garagedoorSTOP_relay
+
+# Process to RESTART the PiCOW from GPI, using the ENABLE switch.
+  - platform: gpio
+    pin:
+      number: 22
+      mode:
+        input: true
+        pullup: true
+      inverted: True
+    name: "Control Box Enabled"
+    id: control_box_enabled
+    on_multi_click:
+    - timing:
+          - OFF for at most 2000ms # Enable button should be OFF for under XXXX ms
+          - ON for at least 500ms # Enable button should be ON for over XXXms
+      then:
+        - logger.log: "Control Box Reset Pico W"
+        - delay: 1000ms
+        - button.press: picow_restart
+    filters:
+      - delayed_on_off: 100ms
+
+
+###### END >> EXTERNAL BOX INPUTS ######
+
+
+switch:
+###### START >> OUTPUTS TO GARAGE DOOR RELAY ######
+  - platform: gpio
+    pin:
+      number: 13
+      # 2020/12/19 NEW CODE START
+      mode:
+        input: false
+        pullup: false
+        output: true
+        open_drain: false
+      # 2020/12/19 NEW CODE END
+      inverted: true
+    id: garagedoorOPEN_relay
+    name: "Garage Door OPEN"
+    interlock: &interlock_group [garagedoorOPEN_relay, garagedoorCLOSE_relay, garagedoorSTOP_relay] # Stop all switches being ON at once
+    icon: "mdi:arrow-up-bold"
+    on_turn_on:
+    - delay: 2000ms # Hold the switch ON for XX ms
+    - switch.turn_off: garagedoorOPEN_relay # Turn OFF the switch
+
+  - platform: gpio
+    pin:
+      number: 14
+      # 2020/12/19 NEW CODE START
+      mode: 
+        input: false
+        pullup: false
+        output: true
+        open_drain: false
+      # 2020/12/19 NEW CODE END
+      inverted: true
+    id: garagedoorCLOSE_relay
+    name: "Garage Door CLOSE"
+    interlock: *interlock_group # Member of the interlock group in Door OPEN Switch
+    icon: "mdi:arrow-down-bold"
+    on_turn_on:
+    - delay: 2000ms # Hold the switch ON for XX ms
+    - switch.turn_off: garagedoorCLOSE_relay # Turn OFF the switch
+
+  - platform: gpio
+    pin:
+      number: 15
+      # 2020/12/19 NEW CODE START
+      mode:
+        input: false
+        pullup: false
+        output: true
+        open_drain: false
+      # 2020/12/19 NEW CODE END
+      inverted: true
+    id: garagedoorSTOP_relay
+    name: "Garage Door STOP"
+    interlock: *interlock_group  # Member of the interlock group in Door OPEN Switch
+    icon: "mdi:stop"
+    on_turn_on:
+    - delay: 2000ms # Hold the switch ON for XX ms
+    - switch.turn_off: garagedoorSTOP_relay # Turn OFF the switch
+
+###### END >> OUTPUTS TO GARAGE DOOR RELAY ######
+
+
+#Temprature Sensor
+dallas:
+    - pin:
+        number: 17 # Monitor Pin on the Pico W for the sensor(s)
+
+sensor:
+  - platform: dallas
+    address: 0x560621302c840b28 # Sensor Address
+    name: "Garage Pico W Outdoor Temperature" # Name of the Sensor
+
+  - platform: dallas
+    address: 0x623ce60457dbca28 # Sensor Address
+    name: "Garage Pico W Case Temperature" # Name of the Sensor
+
+  - platform: wifi_signal # Report the WiFi signal strength/RSSI in dB
+    name: "Garage Pico W WiFi Signal (dB)"
+    id: wifi_signal_db
+    update_interval: 60s
+    icon: mdi:wifi
+    entity_category: "diagnostic"
+
+  - platform: copy # Report the WiFi signal strength in %
+    source_id: wifi_signal_db
+    name: "Garage Pico W WiFi Signal (%)"
+    id: wifi_signal_percentage
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: " %"
+    icon: mdi:wifi
+    entity_category: "diagnostic"
+
+  - platform: uptime # Uptime of the PicoW
+    internal: True # Will not publish to Home Assistant  
+    name: "Garage Pico W Uptime (seconds)"
+    id: uptime_s
+    update_interval: 15s
+    unit_of_measurement: "secs"
+
+
+text_sensor: # Convert the Uptime to Days Hours Minutes Seconds
+  - platform: template
+    name: "Garage Pico W Uptime"
+    icon: mdi:clock-start
+    update_interval: 60s
+    lambda: |-
+      uint32_t dur = id(uptime_s).state;
+      int dys = 0;
+      int hrs = 0;
+      int mnts = 0;
+      if (dur > 86399) {
+        dys = trunc(dur / 86400);
+        dur = dur - (dys * 86400);
+      }
+      if (dur > 3599) {
+        hrs = trunc(dur / 3600);
+        dur = dur - (hrs * 3600);
+      }
+      if (dur > 59) {
+        mnts = trunc(dur / 60);
+        dur = dur - (mnts * 60);
+      }
+      char buffer[17];
+      sprintf(buffer, "%ud %02uh %02um %02us", dys, hrs, mnts, dur);
+      return {buffer};
+
+  - platform: wifi_info
+    ip_address:
+      name: "Garage Pico W IP Address"
+      update_interval: 3600s
+    ssid:
+      name: "Garage Pico W  SSID"
+      update_interval: 86400s
+    mac_address:
+      name: "Garage Pico W Mac Wifi Address"
+
+# Restart button
+button:
+  - platform: restart
+    name: "Garage Pico W Restart"
+    id: picow_restart
+    icon: "mdi:power"
+    on_press:
+    - logger.log: "!! Garage Restart Button Pressed !!"
