@@ -63,6 +63,7 @@ binary_sensor:
     id: garage_door_status
     device_class: problem
 
+# https://esphome.io/components/binary_sensor/status.html
   - platform: status
     name: "Garage Door Power Plug Status"
 
@@ -160,7 +161,7 @@ binary_sensor:
       - delayed_on_off: 500ms
     on_press:
       then:
-        if:
+        if: # I would like the relay switch to be enabled before sending the OPEN command
           condition:
             - binary_sensor.is_on: control_box_enabled
           then:
@@ -180,7 +181,7 @@ binary_sensor:
       - delayed_on_off: 500ms
     on_press:
       then:
-        if:
+        if: # I would like the relay switch to be enabled before sending the CLOSE command
           condition:
             - binary_sensor.is_on: control_box_enabled
           then:
@@ -201,6 +202,7 @@ binary_sensor:
     on_press:
       then:
         - switch.turn_on: garagedoorSTOP_relay
+      # ^^ Notice there are no conditions above, if I press STOP.. I want it to trigger the STOP Command.
 
 # Process to RESTART the PiCOW from GPI, using the ENABLE switch.
   - platform: gpio
@@ -242,7 +244,8 @@ switch:
       inverted: true
     id: garagedoorOPEN_relay
     name: "Garage Door OPEN"
-    interlock: &interlock_group [garagedoorOPEN_relay, garagedoorCLOSE_relay, garagedoorSTOP_relay] # Stop all switches being ON at once
+    # Stop all switch outputs being ON at once 
+    interlock: &interlock_group [garagedoorOPEN_relay, garagedoorCLOSE_relay, garagedoorSTOP_relay] # https://esphome.io/components/switch/gpio.html#interlocking
     icon: "mdi:arrow-up-bold"
     on_turn_on:
     - delay: 2000ms # Hold the switch ON for XX ms
@@ -302,6 +305,10 @@ sensor:
   - platform: dallas
     address: 0x623ce60457dbca28 # Sensor Address
     name: "Garage Pico W Case Temperature" # Name of the Sensor
+  
+  # https://esphome.io/components/sensor/internal_temperature.html
+  - platform: internal_temperature
+    name: "Garage Pico W Internal Temperature"
 
   - platform: wifi_signal # Report the WiFi signal strength/RSSI in dB
     name: "Garage Pico W WiFi Signal (dB)"
