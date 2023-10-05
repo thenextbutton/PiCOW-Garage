@@ -2,28 +2,28 @@ This "project" is me playing around, integrating a Raspberry Pi Pico W in to Hom
 
 Items used in the project:
 
-1 x Raspberry Pi Pico W
-1 x FREENOVE Breakout Board for Raspberry Pi Pico W
-1 x 47K Ohm resistor
-2 x DS18B20 Digital Temperature Sensor
-3 x Wago Splicing Connectors with Levers (221 Series - 3 Conductor)
-1 x Right angle micros usb cable
-1 x British General IP55 weatherproof outdoor enclosure (180MM X 99MM X 111MM)
-2 x British General plastic cable gland 20mm
-1 x British General plastic cable gland 25mm
+1 x Raspberry Pi Pico W <br>
+1 x FREENOVE Breakout Board for Raspberry Pi Pico W <br>
+1 x 47K Ohm resistor <br>
+2 x DS18B20 Digital Temperature Sensor <br>
+3 x Wago Splicing Connectors with Levers (221 Series - 3 Conductor) <br>
+1 x Right angle micros usb cable <br>
+1 x British General IP55 weatherproof outdoor enclosure (180MM X 99MM X 111MM) <br>
+2 x British General plastic cable gland 20mm <br>
+1 x British General plastic cable gland 25mm <br>
 
-4 x m2 Nylon stand offs
-4 x m2 Nylon screws
-4 x m2 Nylon washers
-4 x m2 Nylon bolts
+4 x m2 Nylon stand offs <br>
+4 x m2 Nylon screws <br>
+4 x m2 Nylon washers <br>
+4 x m2 Nylon bolts <br>
 
-1 x 2mm Drill bit
-1 x Countersink Drill bit
+1 x 2mm Drill bit <br>
+1 x Countersink Drill bit <br>
 
-1 x Waterproof button box 22mm (4 hole)
-2 x 22mm Momentary button arrow (black background, white arrow) (LA38A-11BN)
-1 x 22mm Self Locking Red Emergency push button (LA38A-11ZS)
-1 x 22mm 2 position rotating switch (LA38-11x/21)
+1 x Waterproof button box 22mm (4 hole) <br>
+2 x 22mm Momentary button arrow (black background, white arrow) (LA38A-11BN) <br>
+1 x 22mm Self Locking Red Emergency push button (LA38A-11ZS) <br>
+1 x 22mm 2 position rotating switch (LA38-11x/21) <br>
 
-5 core cable, length depends on distance to run from PiCOW to control box
-4 core cable, length depends on distance to run from PiCOW to Garage door motor.
+5 core cable, length depends on distance to run from PiCOW to control box <br>
+4 core cable, length depends on distance to run from PiCOW to Garage door motor. <br>
