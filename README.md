@@ -1,11 +1,3 @@
-
-███████╗░██████╗██████╗░░██████╗░░█████╗░██████╗░░█████╗░░██████╗░███████╗
-██╔════╝██╔════╝██╔══██╗██╔════╝░██╔══██╗██╔══██╗██╔══██╗██╔════╝░██╔════╝
-█████╗░░╚█████╗░██████╔╝██║░░██╗░███████║██████╔╝███████║██║░░██╗░█████╗░░
-██╔══╝░░░╚═══██╗██╔═══╝░██║░░╚██╗██╔══██║██╔══██╗██╔══██║██║░░╚██╗██╔══╝░░
-███████╗██████╔╝██║░░░░░╚██████╔╝██║░░██║██║░░██║██║░░██║╚██████╔╝███████╗
-╚══════╝╚═════╝░╚═╝░░░░░░╚═════╝░╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝░╚═════╝░╚══════╝
-
 This "project" is me playing around, integrating a Raspberry Pi Pico W in to Home Assistant ESPHome to be used as a Garage Door Opener.
 
 Items used in the project:
@@ -27,3 +19,11 @@ Items used in the project:
 
 1 x 2mm Drill bit
 1 x Countersink Drill bit
+
+1 x Waterproof button box 22mm (4 hole)
+2 x 22mm Momentary button arrow (black background, white arrow) (LA38A-11BN)
+1 x 22mm Self Locking Red Emergency push button (LA38A-11ZS)
+1 x 22mm 2 position rotating switch (LA38-11x/21)
+
+5 core cable, length depends on distance to run from PiCOW to control box
+4 core cable, length depends on distance to run from PiCOW to Garage door motor.
