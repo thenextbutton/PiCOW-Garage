@@ -150,7 +150,7 @@ binary_sensor:
 # GPI for remote button press to OPEN garage door
   - platform: gpio
     pin:
-      number: 28
+      number: 8
       mode:
         input: true
         pullup: true
@@ -170,7 +170,7 @@ binary_sensor:
  # GPI for remote button press to CLOSE garage door   
   - platform: gpio
     pin:
-      number: 27
+      number: 9
       mode:
         input: true
         pullup: true
@@ -190,7 +190,7 @@ binary_sensor:
 # GPI for remote button press to STOP garage door
   - platform: gpio
     pin:
-      number: 26
+      number: 10
       mode:
         input: true
         pullup: true
@@ -204,10 +204,11 @@ binary_sensor:
         - switch.turn_on: garagedoorSTOP_relay
       # ^^ Notice there are no conditions above, if I press STOP.. I want it to trigger the STOP Command.
 
-# Process to RESTART the PiCOW from GPI, using the ENABLE switch.
+# GPI for remote switch to ENABLE garage door external control box
+# Also used for resetting the PiCOW, if pattern is matched
   - platform: gpio
     pin:
-      number: 22
+      number: 11
       mode:
         input: true
         pullup: true
