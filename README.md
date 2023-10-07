@@ -27,3 +27,12 @@ Items used in the project:
 
 5 core cable, length depends on distance to run from PiCOW to control box <br>
 4 core cable, length depends on distance to run from PiCOW to Garage door motor. <br>
+
+<br><br>
+Running the esp code as is will produce the following controls and sensors on the default dashboard:
+<br>
+![Screenshot of a Home Assistant garage door entities.](https://github.com/thenextbutton/ESPGarage/blob/main/_readme_images/home_assistant_garage_area_overview.png?raw=true)
+<br><br>
+In devices the following config and diagnostics are available:
+<br>
+![Screenshot of a Home Assistant garage door entities.](https://github.com/thenextbutton/ESPGarage/blob/main/_readme_images/home_assistant_garage_config_diagnostic.png?raw=true)
