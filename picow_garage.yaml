@@ -95,6 +95,10 @@ binary_sensor:
             - binary_sensor.template.publish:
                 id: garage_door
                 state: ON # Turn ON the sensor with device class Garage door this means OPEN 
+            # Remove the cover template publish (3 lines) below if not using the ESP cover 
+            - cover.template.publish:
+                id: garage_door_cover
+                state: OPEN
       - if:
           condition:
             and: # Both senors are ON (the door is stuck between 2 sensors)
@@ -134,6 +138,10 @@ binary_sensor:
             - binary_sensor.template.publish:
                 id: garage_door
                 state: OFF # Turn OFF the sensor with device class Garage door this means CLOSED 
+            # Remove the cover template publish (3 lines) below if not using the ESP cover
+            - cover.template.publish:
+                id: garage_door_cover
+                state: CLOSED
       - if:
           condition:
             and: # Both senors are ON (the door is stuck between 2 sensors)
@@ -235,13 +243,11 @@ switch:
   - platform: gpio
     pin:
       number: 13
-      # 2020/12/19 NEW CODE START
       mode:
         input: false
         pullup: false
         output: true
         open_drain: false
-      # 2020/12/19 NEW CODE END
       inverted: true
     id: garagedoorOPEN_relay
     name: "Garage Door OPEN"
@@ -255,13 +261,11 @@ switch:
   - platform: gpio
     pin:
       number: 14
-      # 2020/12/19 NEW CODE START
       mode: 
         input: false
         pullup: false
         output: true
         open_drain: false
-      # 2020/12/19 NEW CODE END
       inverted: true
     id: garagedoorCLOSE_relay
     name: "Garage Door CLOSE"
@@ -274,13 +278,11 @@ switch:
   - platform: gpio
     pin:
       number: 15
-      # 2020/12/19 NEW CODE START
       mode:
         input: false
         pullup: false
         output: true
         open_drain: false
-      # 2020/12/19 NEW CODE END
       inverted: true
     id: garagedoorSTOP_relay
     name: "Garage Door STOP"
@@ -380,3 +382,17 @@ button:
     icon: "mdi:power"
     on_press:
     - logger.log: "!! Garage Restart Button Pressed !!"
+
+
+# Home Assistant Cover
+cover:
+  - platform: template
+    device_class: garage
+    id: garage_door_cover
+    name: "Garage Door"
+    open_action:
+      - switch.turn_on: garagedoorOPEN_relay
+    close_action:
+      - switch.turn_on: garagedoorCLOSE_relay
+    stop_action:
+      - switch.turn_on: garagedoorSTOP_relay
