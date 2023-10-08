@@ -210,6 +210,9 @@ binary_sensor:
     on_press:
       then:
         - switch.turn_on: garagedoorSTOP_relay
+        - logger.log: "!! CONTROL BOX STOP PRESSED !!"
+    on_release:
+        - logger.log: "!! CONTROL BOX STOP RELEASED !!"
       # ^^ Notice there are no conditions above, if I press STOP.. I want it to trigger the STOP Command.
 
 # GPI for remote switch to ENABLE garage door external control box
