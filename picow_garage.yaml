@@ -54,8 +54,8 @@ interval:
 # Garage Door Sensor
 binary_sensor:
   - platform: template
-    name: "Garage Door"
-    id: garage_door
+    name: "Garage Door Position"
+    id: garage_door_position
     device_class: garage_door
  
   - platform: template
@@ -93,7 +93,7 @@ binary_sensor:
                 id: garage_door_status 
                 state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
             - binary_sensor.template.publish:
-                id: garage_door
+                id: garage_door_position
                 state: ON # Turn ON the sensor with device class Garage door this means OPEN 
             # Remove the cover template publish (3 lines) below if not using the ESP cover 
             - cover.template.publish:
@@ -136,7 +136,7 @@ binary_sensor:
                 id: garage_door_status
                 state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
             - binary_sensor.template.publish:
-                id: garage_door
+                id: garage_door_position
                 state: OFF # Turn OFF the sensor with device class Garage door this means CLOSED 
             # Remove the cover template publish (3 lines) below if not using the ESP cover
             - cover.template.publish:
