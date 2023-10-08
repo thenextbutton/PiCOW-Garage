@@ -252,7 +252,7 @@ switch:
     id: garagedoorOPEN_relay
     name: "Garage Door OPEN"
     # Stop all switch outputs being ON at once 
-    interlock: &interlock_group [garagedoorOPEN_relay, garagedoorCLOSE_relay, garagedoorSTOP_relay] # https://esphome.io/components/switch/gpio.html#interlocking
+    interlock: &interlock_group [garagedoorOPEN_relay, garagedoorCLOSE_relay] # https://esphome.io/components/switch/gpio.html#interlocking
     icon: "mdi:arrow-up-bold"
     on_turn_on:
     - delay: 2000ms # Hold the switch ON for XX ms
@@ -286,9 +286,10 @@ switch:
       inverted: true
     id: garagedoorSTOP_relay
     name: "Garage Door STOP"
-    interlock: *interlock_group  # Member of the interlock group in Door OPEN Switch
     icon: "mdi:stop"
     on_turn_on:
+    - switch.turn_off: garagedoorOPEN_relay # Turn off the OPEN Door relay (incase it is on)
+    - switch.turn_off: garagedoorCLOSE_relay #Turn off the CLOSE Door relay (incase is is on)
     - delay: 2000ms # Hold the switch ON for XX ms
     - switch.turn_off: garagedoorSTOP_relay # Turn OFF the switch
 
