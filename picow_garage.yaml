@@ -335,14 +335,13 @@ sensor:
     entity_category: "diagnostic"
 
   - platform: uptime # Uptime of the PicoW
-    internal: True # Will not publish to Home Assistant  
-    name: "Garage Pico W Uptime (seconds)"
+    update_interval: 10s
     id: uptime_s
-    update_interval: 15s
-    unit_of_measurement: "secs"
 
-
-text_sensor: # Convert the Uptime to Days Hours Minutes Seconds
+# Convert the Uptime to Days Hours Minutes Seconds
+# first duration is to get around an issue on startup
+# where uptime shows it has been on line for 136 years
+text_sensor: 
   - platform: template
     name: "Garage Pico W Uptime"
     icon: mdi:clock-start
@@ -352,6 +351,12 @@ text_sensor: # Convert the Uptime to Days Hours Minutes Seconds
       int dys = 0;
       int hrs = 0;
       int mnts = 0;
+      if (dur > 4294944000) {
+        dys = 0;
+        hrs = 0;
+        mnts = 0;
+        dur = 0;
+      }
       if (dur > 86399) {
         dys = trunc(dur / 86400);
         dur = dur - (dys * 86400);
@@ -365,7 +370,7 @@ text_sensor: # Convert the Uptime to Days Hours Minutes Seconds
         dur = dur - (mnts * 60);
       }
       char buffer[17];
-      sprintf(buffer, "%ud %02uh %02um %02us", dys, hrs, mnts, dur);
+      sprintf(buffer, "%02ud %02uh %02um %02us", dys, hrs, mnts, dur);
       return {buffer};
 
   - platform: wifi_info
