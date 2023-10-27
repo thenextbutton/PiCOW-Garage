@@ -15,13 +15,18 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
   garage_door_open_time: "25000" 
   garage_door_close_time: "25000"
 
+  # How long in milliseconds to hold open the relays for the open, close and stop commands.
+  relay_open_hold_time: "2000"
+  relay_close_hold_time: "2000"
+  relay_stop_hold_time: "5000"
+
+
 esphome:
   name: "picow-garage"
   on_boot:
     priority: -100.0 # https://esphome.io/components/esphome.html#on-boot
     then:
        
-
 rp2040:
   board: rpipicow
   framework:
@@ -82,7 +87,7 @@ binary_sensor:
 
 # https://esphome.io/components/binary_sensor/status.html
   - platform: status
-    name: ${friendlyname} Power Status"
+    name: ${friendlyname} Power Status
     id: ${devicename}_power_status
 
 # Door Open
@@ -113,17 +118,17 @@ binary_sensor:
             - binary_sensor.template.publish:
                 id: ${devicename}_position
                 state: ON # Turn ON the sensor with device class Garage door this means OPEN 
-            # Remove the cover template publish (3 lines) below if not using the ESP cover 
+            # Remove the cover template publish (3 lines) below if not using ESP cover
             - cover.template.publish:
                 id: ${devicename}_cover
                 state: OPEN
       - if:
           condition:
             and: # Both senors are ON (the door is stuck between 2 sensors)
-             - binary_sensor.is_on: ${devicename}_open
-             - binary_sensor.is_on: ${devicename}_closed
+              - binary_sensor.is_on: ${devicename}_open
+              - binary_sensor.is_on: ${devicename}_closed
           then:   
-             - binary_sensor.template.publish:
+            - binary_sensor.template.publish:
                 id: ${devicename}_status
                 state: ON # The door is stuck between sensors, change the state to ON (PROBLEM DETECTED)
 
@@ -156,7 +161,7 @@ binary_sensor:
             - binary_sensor.template.publish:
                 id: ${devicename}_position
                 state: OFF # Turn OFF the sensor with device class Garage door this means CLOSED 
-            # Remove the cover template publish (3 lines) below if not using the ESP cover
+            # Remove the cover template publish (3 lines) below if not using ESP cover
             - cover.template.publish:
                 id: ${devicename}_cover
                 state: CLOSED
@@ -166,9 +171,9 @@ binary_sensor:
             - binary_sensor.is_on: ${devicename}_open
             - binary_sensor.is_on: ${devicename}_closed
           then:   
-             - binary_sensor.template.publish:
-                id: ${devicename}_status
-                state: ON # The door is stuck between sensors, change the state to ON (PROBLEM DETECTED)
+            - binary_sensor.template.publish:
+               id: ${devicename}_status
+               state: ON # The door is stuck between sensors, change the state to ON (PROBLEM DETECTED)
 
 
 ###### START >> EXTERNAL CONTROL BOX INPUTS ######
@@ -180,40 +185,38 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: True
+      inverted: true
     name: ${friendlyname} Control Box Open
     id: ${devicename}_control_box_open
     filters:
       - delayed_on_off: 500ms
     on_press:
-      then:
-        if: # I would like the relay switch to be enabled before sending the OPEN command
-          condition:
-            - binary_sensor.is_on: ${devicename}_control_box_enabled
-          then:
-            - switch.turn_off: picow_garage_CLOSE_relay
-            - switch.turn_on: picow_garage_OPEN_relay
+      if: # I would like the relay switch to be enabled before sending the OPEN command
+        condition:
+          - binary_sensor.is_on: ${devicename}_control_box_enabled
+        then:
+          - switch.turn_off: ${devicename}_relay_close
+          - switch.turn_on: ${devicename}_relay_open
 
- # GPI for remote button press to CLOSE garage door   
+ # GPI for remote button press to CLOSE garage door
   - platform: gpio
     pin:
       number: 9
       mode:
         input: true
         pullup: true
-      inverted: True
+      inverted: true
     name: ${friendlyname} Control Box Close
     id: ${devicename}_control_box_close
     filters:
       - delayed_on_off: 500ms
     on_press:
-      then:
-        if: # I would like the relay switch to be enabled before sending the CLOSE command
-          condition:
-            - binary_sensor.is_on: ${devicename}_control_box_enabled
-          then:
-            - switch.turn_off: picow_garage_OPEN_relay
-            - switch.turn_on: picow_garage_CLOSE_relay
+      if: # I would like the relay switch to be enabled before sending the CLOSE command
+        condition:
+          - binary_sensor.is_on: ${devicename}_control_box_enabled
+        then:
+          - switch.turn_off: ${devicename}_relay_open
+          - switch.turn_on: ${devicename}_relay_close
 
 # GPI for remote button press to STOP garage door
   - platform: gpio
@@ -222,18 +225,17 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: True
+      inverted: true
     name: ${friendlyname} Control Box Stop
     id: ${devicename}_control_box_stop
     filters:
       - delayed_on_off: 500ms
     on_press:
-      then:
-        - switch.turn_on: picow_garage_STOP_relay
-        - logger.log: "!! ${devicename} CONTROL BOX STOP PRESSED !!"
+      - switch.turn_on: ${devicename}_relay_stop
+      - logger.log: "!! ${devicename} CONTROL BOX STOP PRESSED !!"
     on_release:
         - logger.log: "!! ${devicename} CONTROL BOX STOP RELEASED !!"
-      # ^^ Notice there are no conditions above, if I press STOP.. I want it to trigger the STOP Command.
+      # ^^ Notice there are no conditions, if I press STOP.. I want it to trigger the STOP Command.
 
 # GPI for remote switch to ENABLE garage door external control box
 # Also used for resetting the PiCOW, if pattern is matched
@@ -257,12 +259,13 @@ binary_sensor:
     filters:
       - delayed_on_off: 100ms
 
-
 ###### END >> EXTERNAL BOX INPUTS ######
 
 
 switch:
 ###### START >> OUTPUTS TO GARAGE DOOR RELAY ######
+  
+  # RELAY OPEN
   - platform: gpio
     pin:
       number: 13
@@ -272,15 +275,15 @@ switch:
         output: true
         open_drain: false
       inverted: true
-    id: picow_garage_OPEN_relay
+    id: ${devicename}_relay_open
+    interlock: &interlock_group ["${devicename}_relay_open", "${devicename}_relay_close", "${devicename}_relay_stop" ] # https://esphome.io/components/switch/gpio.html#interlocking
     name: ${friendlyname} OPEN
-    # Stop all switch outputs being ON at once 
-    interlock: &interlock_group [picow_garage_OPEN_relay, picow_garage_CLOSE_relay] # https://esphome.io/components/switch/gpio.html#interlocking
     icon: "mdi:arrow-up-bold"
     on_turn_on:
-    - delay: 2000ms # Hold the contact ON for XX ms
-    - switch.turn_off: picow_garage_OPEN_relay # Turn OFF the contact
-
+    - delay: ${relay_open_hold_time} ms # Hold the relay ON for XX ms
+    - switch.turn_off: ${devicename}_relay_open # Turn OFF the relay
+    
+  # RELAY CLOSE
   - platform: gpio
     pin:
       number: 14
@@ -290,14 +293,15 @@ switch:
         output: true
         open_drain: false
       inverted: true
-    id: picow_garage_CLOSE_relay
+    id: ${devicename}_relay_close
+    interlock: *interlock_group
     name: ${friendlyname} CLOSE
-    interlock: *interlock_group # Member of the interlock group in Door OPEN Switch
     icon: "mdi:arrow-down-bold"
     on_turn_on:
-    - delay: 2000ms # Hold the contact ON for XX ms
-    - switch.turn_off: picow_garage_CLOSE_relay # Turn OFF the contact
+    - delay: ${relay_close_hold_time} ms # Hold the relay ON for XX ms
+    - switch.turn_off: ${devicename}_relay_close # Turn OFF the relay
 
+  # RELAY STOP
   - platform: gpio
     pin:
       number: 15
@@ -307,14 +311,13 @@ switch:
         output: true
         open_drain: false
       inverted: true
-    id: picow_garage_STOP_relay
+    id: ${devicename}_relay_stop
+    interlock: *interlock_group
     name: ${friendlyname} STOP
     icon: "mdi:stop"
     on_turn_on:
-    - switch.turn_off: picow_garage_OPEN_relay # Turn off the OPEN Door contact (incase it is on)
-    - switch.turn_off: picow_garage_CLOSE_relay #Turn off the CLOSE Door contact (incase is is on)
-    - delay: 2000ms # Hold the contact ON for XX ms
-    - switch.turn_off: picow_garage_STOP_relay # Turn OFF the contact
+    - delay: ${relay_stop_hold_time} ms # Hold the relay ON for XX ms
+    - switch.turn_off: ${devicename}_relay_stop # Turn OFF the relay
 
 ###### END >> OUTPUTS TO GARAGE DOOR RELAY ######
 
@@ -358,7 +361,7 @@ sensor:
     entity_category: "diagnostic"
 
   - platform: uptime # Uptime of the PicoW
-    update_interval: 10s
+    update_interval: 5s
     id: ${devicename}_uptime_s
 
 # Convert the Uptime to Days Hours Minutes Seconds
@@ -415,18 +418,18 @@ button:
     id: ${devicename}_restart
     icon: "mdi:power"
     on_press:
-    - logger.log: "!! ${devicename} Restarting !!"
-
+      then:
+      - logger.log: "!! ${devicename} Restarting !!"
 
 # Home Assistant Cover
 cover:
   - platform: template
     device_class: garage
     id: ${devicename}_cover
-    name: "Garage Door"
+    name: ${friendlyname}
     open_action:
-      - switch.turn_on: picow_garage_OPEN_relay
+      - switch.turn_on: ${devicename}_relay_open
     close_action:
-      - switch.turn_on: picow_garage_CLOSE_relay
+      - switch.turn_on: ${devicename}_relay_close
     stop_action:
-      - switch.turn_on: picow_garage_STOP_relay
+      - switch.turn_on: ${devicename}_relay_stop
