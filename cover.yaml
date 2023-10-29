@@ -1,6 +1,6 @@
 #####
 # This is work in progress
-# cover is included within the main EPS yaml
+# cover is included within the main ESP yaml
 #####
   
   - platform: template
