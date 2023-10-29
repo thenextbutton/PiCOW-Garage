@@ -1,3 +1,8 @@
+#####
+# This is work in progress
+# cover is included within the main EPS yaml
+#####
+  
   - platform: template
     covers:
       garage_door:
