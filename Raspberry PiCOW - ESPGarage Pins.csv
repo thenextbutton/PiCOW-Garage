@@ -10,7 +10,7 @@ Pin,Description,Notes,Pin,Description,Notes
 9,GP6,Contact for Garage Door sensor CLOSED,29,GP27,
 10,GP7,,30,GP26,
 11,GP8,External Control Box OPEN button,31,RUN,
-12,GP9,External Control Box CLOSED button,32,GP22,
+12,GP9,External Control Box CLOSE button,32,GP22,
 13,GND,,33,GND,
 14,GP10,External Control Box STOP button,34,GP21,
 15,GP11,External Control Box ENABLE button,35,GP20,
