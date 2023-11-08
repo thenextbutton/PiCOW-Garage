@@ -22,7 +22,8 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
 
 
 esphome:
-  name: "picow-garage"
+  name: ${devicename}
+  min_version: 2023.10.6
   on_boot:
     priority: -100.0 # https://esphome.io/components/esphome.html#on-boot
     then:
@@ -175,7 +176,6 @@ binary_sensor:
                id: ${devicename}_status
                state: ON # The door is stuck between sensors, change the state to ON (PROBLEM DETECTED)
 
-
 ###### START >> EXTERNAL CONTROL BOX INPUTS ######
 
 # GPI for remote button press to OPEN garage door
@@ -185,7 +185,7 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: true
+      inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Open
     id: ${devicename}_control_box_open
     filters:
@@ -205,7 +205,7 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: true
+      inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Close
     id: ${devicename}_control_box_close
     filters:
@@ -225,7 +225,7 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: true
+      inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Stop
     id: ${devicename}_control_box_stop
     filters:
@@ -253,7 +253,7 @@ binary_sensor:
           - OFF for at most 2000ms # Enable button should be OFF for under XXXX ms
           - ON for at least 500ms # Enable button should be ON for over XXXms
       then:
-        - logger.log: ${friendlyname} Control Box Reset ${devicename}
+        - logger.log: Control Box Reset ${devicename}
         - delay: 1000ms
         - button.press: ${devicename}_restart
     filters:
@@ -265,62 +265,111 @@ binary_sensor:
 switch:
 ###### START >> OUTPUTS TO GARAGE DOOR RELAY ######
   
+  - platform: template
+    name: ${friendlyname} Open
+    icon: "mdi:arrow-up-bold"
+    id: ${devicename}_relay_open
+    lambda: |-
+      if (id(${devicename}_relay_open_internal).state) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - switch.turn_off: ${devicename}_relay_close_internal
+      - switch.turn_off: ${devicename}_relay_stop_internal
+      - delay: 50ms
+      - switch.turn_on: ${devicename}_relay_open_internal
+      - delay: ${relay_open_hold_time} ms # Hold the relay for XX ms
+      - switch.turn_off: ${devicename}_relay_open_internal
+    turn_off_action:
+      - switch.turn_off: ${devicename}_relay_open_internal
+
+
+  - platform: template
+    name: ${friendlyname} Close
+    icon: "mdi:arrow-down-bold"
+    id: ${devicename}_relay_close
+    lambda: |-
+      if (id(${devicename}_relay_close_internal).state) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - switch.turn_off: ${devicename}_relay_open_internal
+      - switch.turn_off: ${devicename}_relay_stop_internal
+      - delay: 50ms
+      - switch.turn_on: ${devicename}_relay_close_internal
+      - delay: ${relay_close_hold_time} ms # Hold the relay for XX ms
+      - switch.turn_off: ${devicename}_relay_close_internal
+    turn_off_action:
+      - switch.turn_off: ${devicename}_relay_close_internal
+
+
+  - platform: template
+    name: ${friendlyname} Stop
+    icon: "mdi:stop"
+    id: ${devicename}_relay_stop
+    lambda: |-
+      if (id(${devicename}_relay_stop_internal).state) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - switch.turn_off: ${devicename}_relay_open_internal
+      - switch.turn_off: ${devicename}_relay_close_internal
+      - delay: 50ms
+      - switch.turn_on: ${devicename}_relay_stop_internal
+      - delay: ${relay_stop_hold_time} ms # Hold the relay for XX ms
+      - switch.turn_off: ${devicename}_relay_stop_internal
+    turn_off_action:
+      - switch.turn_off: ${devicename}_relay_stop_internal
+
+
   # RELAY OPEN
   - platform: gpio
+    id: ${devicename}_relay_open_internal
+    internal: true
     pin:
-      number: 13
+      number: 0
+      inverted: true
       mode:
         input: false
         pullup: false
         output: true
         open_drain: false
-      inverted: true
-    id: ${devicename}_relay_open
-    interlock: &interlock_group ["${devicename}_relay_open", "${devicename}_relay_close", "${devicename}_relay_stop" ] # https://esphome.io/components/switch/gpio.html#interlocking
-    name: ${friendlyname} OPEN
-    icon: "mdi:arrow-up-bold"
-    on_turn_on:
-    - delay: ${relay_open_hold_time} ms # Hold the relay ON for XX ms
-    - switch.turn_off: ${devicename}_relay_open # Turn OFF the relay
     
+  
   # RELAY CLOSE
   - platform: gpio
+    id: ${devicename}_relay_close_internal
+    internal: true
     pin:
-      number: 14
+      number: 1
+      inverted: true
       mode: 
         input: false
         pullup: false
         output: true
         open_drain: false
-      inverted: true
-    id: ${devicename}_relay_close
-    interlock: *interlock_group
-    name: ${friendlyname} CLOSE
-    icon: "mdi:arrow-down-bold"
-    on_turn_on:
-    - delay: ${relay_close_hold_time} ms # Hold the relay ON for XX ms
-    - switch.turn_off: ${devicename}_relay_close # Turn OFF the relay
 
+  
   # RELAY STOP
   - platform: gpio
+    id: ${devicename}_relay_stop_internal
+    internal: true
     pin:
-      number: 15
+      number: 2
+      inverted: true
       mode:
         input: false
         pullup: false
         output: true
         open_drain: false
-      inverted: true
-    id: ${devicename}_relay_stop
-    interlock: *interlock_group
-    name: ${friendlyname} STOP
-    icon: "mdi:stop"
-    on_turn_on:
-    - delay: ${relay_stop_hold_time} ms # Hold the relay ON for XX ms
-    - switch.turn_off: ${devicename}_relay_stop # Turn OFF the relay
 
 ###### END >> OUTPUTS TO GARAGE DOOR RELAY ######
-
 
 #Temprature Sensor
 dallas:
@@ -328,6 +377,8 @@ dallas:
         number: 17 # Monitor Pin on the Pico W for the sensor(s)
 
 sensor:
+
+  # https://esphome.io/components/sensor/dallas.html
   - platform: dallas
     address: 0x560621302c840b28 # Sensor Address
     name: ${friendlyname} Outdoor Temperature # Name of the Sensor
@@ -340,11 +391,11 @@ sensor:
   
   # https://esphome.io/components/sensor/internal_temperature.html
   - platform: internal_temperature
-    name: ${devicename} Temperature
+    name: ${friendlyname} Temperature
     id: ${devicename}_temperature
 
   - platform: wifi_signal # Report the WiFi signal strength/RSSI in dB
-    name: ${devicename} WiFi Signal (dB)
+    name: ${friendlyname} WiFi Signal (dB)
     id: ${devicename}_wifi_signal_db
     update_interval: 60s
     icon: mdi:wifi
@@ -352,7 +403,7 @@ sensor:
 
   - platform: copy # Report the WiFi signal strength in %
     source_id: ${devicename}_wifi_signal_db
-    name: ${devicename} WiFi Signal (%)
+    name: ${friendlyname} WiFi Signal (%)
     id: ${devicename}_wifi_signal_percentage
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
@@ -401,14 +452,14 @@ text_sensor:
 
   - platform: wifi_info
     ip_address:
-      name: ${devicename} IP Address
+      name: ${friendlyname} IP Address
       update_interval: 3600s
       id: ${devicename}_ip_address
     ssid:
-      name: ${devicename} SSID
+      name: ${friendlyname} SSID
       id: ${devicename}_ssid_connection
     mac_address:
-      name: ${devicename} MAC Address
+      name: ${friendlyname} MAC Address
       id: ${devicename}_mac_address
 
 # Restart button
