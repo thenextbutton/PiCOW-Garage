@@ -21,12 +21,18 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
   relay_stop_hold_time: "5000"
 
 
+
 esphome:
   name: ${devicename}
   min_version: 2023.10.6
   on_boot:
     priority: -100.0 # https://esphome.io/components/esphome.html#on-boot
     then:
+      if:
+        condition:
+         - binary_sensor.is_on: ${devicename}_control_box_stop # Check to see if the control box STOP is OFF
+        then: #If it is then turn on the relay.
+          - switch.turn_on: ${devicename}_relay_stop 
        
 rp2040:
   board: rpipicow
@@ -34,7 +40,7 @@ rp2040:
     # Required until https://github.com/platformio/platform-raspberrypi/pull/36 is merged
     platform_version: https://github.com/maxgerhardt/platform-raspberrypi.git
 
-# Enable logging
+# Enable logging https://esphome.io/components/logger.html#
 logger:
   level: DEBUG
 
@@ -74,8 +80,15 @@ interval:
       - output.turn_off: ${devicename}_LED
 
 
-# Garage Door Sensor
 binary_sensor:
+
+# https://esphome.io/components/binary_sensor/status.html
+  - platform: status
+    name: ${friendlyname} Power Status
+    id: ${devicename}_power_status
+
+###### START >> GARAGE DOOR OPEN/CLOSE CONTACT SENSOR(s) ######
+
   - platform: template
     name: ${friendlyname} Position
     id: ${devicename}_position
@@ -85,11 +98,6 @@ binary_sensor:
     name: ${friendlyname} Status
     id: ${devicename}_status
     device_class: problem
-
-# https://esphome.io/components/binary_sensor/status.html
-  - platform: status
-    name: ${friendlyname} Power Status
-    id: ${devicename}_power_status
 
 # Door Open
   - platform: gpio
@@ -176,6 +184,9 @@ binary_sensor:
                id: ${devicename}_status
                state: ON # The door is stuck between sensors, change the state to ON (PROBLEM DETECTED)
 
+###### END >> GARAGE DOOR OPEN/CLOSE CONTACT SENSOR(s) ######
+
+
 ###### START >> EXTERNAL CONTROL BOX INPUTS ######
 
 # GPI for remote button press to OPEN garage door
@@ -188,8 +199,6 @@ binary_sensor:
       inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Open
     id: ${devicename}_control_box_open
-    filters:
-      - delayed_on_off: 500ms
     on_press:
       if: # I would like the relay switch to be enabled before sending the OPEN command
         condition:
@@ -208,8 +217,6 @@ binary_sensor:
       inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Close
     id: ${devicename}_control_box_close
-    filters:
-      - delayed_on_off: 500ms
     on_press:
       if: # I would like the relay switch to be enabled before sending the CLOSE command
         condition:
@@ -228,13 +235,11 @@ binary_sensor:
       inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Stop
     id: ${devicename}_control_box_stop
-    filters:
-      - delayed_on_off: 500ms
     on_press:
       - switch.turn_on: ${devicename}_relay_stop
-      - logger.log: "!! ${devicename} CONTROL BOX STOP PRESSED !!"
+      - logger.log: "${friendlyname} CONTROL BOX STOP PRESSED !!"
     on_release:
-        - logger.log: "!! ${devicename} CONTROL BOX STOP RELEASED !!"
+        - logger.log: "${friendlyname} CONTROL BOX STOP RELEASED !!"
       # ^^ Notice there are no conditions, if I press STOP.. I want it to trigger the STOP Command.
 
 # GPI for remote switch to ENABLE garage door external control box
@@ -245,10 +250,10 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: true
+      inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Enabled
     id: ${devicename}_control_box_enabled
-    on_multi_click:
+    on_multi_click: # https://esphome.io/components/binary_sensor/index.html#on-multi-click
     - timing:
           - OFF for at most 2000ms # Enable button should be OFF for under XXXX ms
           - ON for at least 500ms # Enable button should be ON for over XXXms
@@ -256,8 +261,6 @@ binary_sensor:
         - logger.log: Control Box Reset ${devicename}
         - delay: 1000ms
         - button.press: ${devicename}_restart
-    filters:
-      - delayed_on_off: 100ms
 
 ###### END >> EXTERNAL BOX INPUTS ######
 
@@ -276,12 +279,18 @@ switch:
         return false;
       }
     turn_on_action:
-      - switch.turn_off: ${devicename}_relay_close_internal
-      - switch.turn_off: ${devicename}_relay_stop_internal
-      - delay: 50ms
-      - switch.turn_on: ${devicename}_relay_open_internal
-      - delay: ${relay_open_hold_time} ms # Hold the relay for XX ms
-      - switch.turn_off: ${devicename}_relay_open_internal
+      if:
+        condition:
+          - binary_sensor.is_off: ${devicename}_control_box_stop # Check to make sure the control box STOP is OFF
+        then:
+          - switch.turn_off: ${devicename}_relay_close_internal
+          - switch.turn_off: ${devicename}_relay_stop_internal
+          - delay: 50ms
+          - switch.turn_on: ${devicename}_relay_open_internal
+          - delay: ${relay_open_hold_time} ms # Hold the relay for XX ms
+          - switch.turn_off: ${devicename}_relay_open_internal
+        else:
+          - logger.log: "CANCEL OPEN - ${friendlyname} Control Box STOP ACTIVE !!"
     turn_off_action:
       - switch.turn_off: ${devicename}_relay_open_internal
 
@@ -297,12 +306,18 @@ switch:
         return false;
       }
     turn_on_action:
-      - switch.turn_off: ${devicename}_relay_open_internal
-      - switch.turn_off: ${devicename}_relay_stop_internal
-      - delay: 50ms
-      - switch.turn_on: ${devicename}_relay_close_internal
-      - delay: ${relay_close_hold_time} ms # Hold the relay for XX ms
-      - switch.turn_off: ${devicename}_relay_close_internal
+      if:
+        condition:
+          - binary_sensor.is_off: ${devicename}_control_box_stop # Check to make sure the control box STOP is OFF
+        then: 
+          - switch.turn_off: ${devicename}_relay_open_internal
+          - switch.turn_off: ${devicename}_relay_stop_internal
+          - delay: 50ms
+          - switch.turn_on: ${devicename}_relay_close_internal
+          - delay: ${relay_close_hold_time} ms # Hold the relay for XX ms
+          - switch.turn_off: ${devicename}_relay_close_internal
+        else:
+          - logger.log: "CANCEL CLOSE - ${friendlyname} Control Box STOP ACTIVE !!"
     turn_off_action:
       - switch.turn_off: ${devicename}_relay_close_internal
 
@@ -323,9 +338,21 @@ switch:
       - delay: 50ms
       - switch.turn_on: ${devicename}_relay_stop_internal
       - delay: ${relay_stop_hold_time} ms # Hold the relay for XX ms
+      - while: # Going to LOOP This until the stop button is released
+          condition:
+            - binary_sensor.is_on: ${devicename}_control_box_stop
+          then:
+            - logger.log: "${friendlyname} Control Box STOP STILL ACTIVE !! - Looping"
+            - delay: 5s
       - switch.turn_off: ${devicename}_relay_stop_internal
     turn_off_action:
-      - switch.turn_off: ${devicename}_relay_stop_internal
+      if:
+        condition:
+          - binary_sensor.is_off: ${devicename}_control_box_stop # Check to make sure the control box STOP is OFF
+        then:
+          - switch.turn_off: ${devicename}_relay_stop_internal
+        else:
+          - logger.log: "${friendlyname} Control Box STOP ACTIVE Cancelling Turn OFF Request!!"
 
 
   # RELAY OPEN
@@ -470,7 +497,7 @@ button:
     icon: "mdi:power"
     on_press:
       then:
-      - logger.log: "!! ${devicename} Restarting !!"
+      - logger.log: "${devicename} Restarting !!"
 
 # Home Assistant Cover
 cover:
