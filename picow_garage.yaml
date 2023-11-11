@@ -21,17 +21,18 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
   relay_stop_hold_time: "5000"
 
 
-
 esphome:
   name: ${devicename}
   min_version: 2023.10.6
-  on_boot:
-    priority: -100.0 # https://esphome.io/components/esphome.html#on-boot
+  on_boot: # https://esphome.io/components/esphome.html#on-boot
+    priority: -100.0
     then:
+      # Check to see if the control box STOP is ON
       if:
         condition:
-         - binary_sensor.is_on: ${devicename}_control_box_stop # Check to see if the control box STOP is OFF
-        then: #If it is then turn on the relay.
+          - binary_sensor.is_on: ${devicename}_control_box_stop 
+        then: 
+            #If it is then turn on the relay.
           - switch.turn_on: ${devicename}_relay_stop 
        
 rp2040:
