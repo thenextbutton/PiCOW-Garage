@@ -2,7 +2,7 @@ Pin,Description,Cable Colour,Notes,Pin,Description,Cable Colour,Notes
 1,GP0,,Relay to Garage Door Motor - OPEN,21,VBUS,,
 2,GP1,,Relay to Garage Door Motor - CLOSE,22,VSYS,,
 3,GND,,,23,GND,,Ground to DS18B20 Temperature Sensor
-4,GP2,,Relay to Garage Door Motor - STOP,24,,EN,
+4,GP2,,Relay to Garage Door Motor - STOP,24,EN,,
 5,GP3,,,25,3V3,,Volts to to DS18B20 Temperature Sensor + 4.7K Ohm resistor to GP17 (Pin 39)
 6,GP4,,,26,VREF,,
 7,GP5,,Contact for Garage Door sensor OPENED,27,GP28,,
