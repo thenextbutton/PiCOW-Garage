@@ -6,7 +6,7 @@ Pin,Description,Cable Colour,Notes,Pin,Description,Cable Colour,Notes
 5,GP3,,,25,3V3,,Volts to to DS18B20 Temperature Sensor + 4.7K Ohm resistor to GP17 (Pin 39)
 6,GP4,,,26,VREF,,
 7,GP5,,Contact for Garage Door sensor OPENED,27,GP28,,Trigger pin for HC-SR04 Ultrasonic sensor
-8,GND,,,28,GND,,Ground to DS18B20 Temperature Sensor
+8,GND,,,28,GND,,
 9,GP6,,Contact for Garage Door sensor CLOSED,29,GP27,,Echo pin for HC-SR04 Ultrasonic sensor
 10,GP7,,,30,GP26,,
 11,GP8,,External Control Box OPEN button,31,RUN,,
@@ -16,6 +16,6 @@ Pin,Description,Cable Colour,Notes,Pin,Description,Cable Colour,Notes
 15,GP11,,External Control Box ENABLE button,35,GP20,,
 16,GP12,,,36,GP19,,
 17,GP13,,,37,GP18,,
-18,GND,,,38,GND,,
+18,GND,,,38,GND,,Ground to DS18B20 Temperature Sensor
 19,GP14,,,39,GP17,,DS18B20 Temperature Sensor Communication Pin
 20,GP15,,,40,GP16,,
