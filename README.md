@@ -6,6 +6,7 @@ Items used in the project:
 1 x FREENOVE Breakout Board for Raspberry Pi Pico W <br>
 1 x 47K Ohm resistor <br>
 2 x DS18B20 Digital Temperature Sensor <br>
+1 x Ultrasonic Distance Sensor HC-SR04 <br>
 3 x Wago Splicing Connectors with Levers (221 Series - 3 Conductor) <br>
 1 x Right angle micros usb cable <br>
 1 x British General IP55 weatherproof outdoor enclosure (180MM X 99MM X 111MM) <br>
@@ -26,7 +27,9 @@ Items used in the project:
 1 x 22mm 2 position rotating switch (LA38-11x/21) <br>
 
 5 core cable, length depends on distance to run from PiCOW to control box <br>
-4 core cable, length depends on distance to run from PiCOW to Garage door motor. <br><br>
+4 core cable, length depends on distance to run from PiCOW to Garage door motor <br>
+4 kynar wires, from the HC-SR04 to the PiCOW for the Ultrasonic sensor <br><br>
+
 
 ###########################################<br>
 Things to change before deploying the code:<br>
@@ -39,13 +42,7 @@ The majority of the config are in the substitutions within the header<br><br>
   fallback_ssid_password: <<ap_ssid_password>><br><br>
   
   api_encryption_key: <<api_encryption>> <br>
-  ota_password: <<ota_password>><br><br>
-
-The one thing outwith the substitutions that needs to be changed, if creating more than one garage door opener then this will need changing:<br><br>
-
-  esphome: <br>
-    name: "picow-garage"<br><br>
-
+  ota_password: <<ota_password>><br>
 ###########################################<br>
 <br><br>
 Running the esp code as is will produce the following controls and sensors on the default dashboard:
