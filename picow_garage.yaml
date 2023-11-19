@@ -490,12 +490,15 @@ text_sensor:
       name: ${friendlyname} IP Address
       update_interval: 3600s
       id: ${devicename}_ip_address
+      icon: "mdi:ip-network"
     ssid:
       name: ${friendlyname} SSID
       id: ${devicename}_ssid_connection
+      icon: "mdi:wifi"
     mac_address:
       name: ${friendlyname} MAC Address
       id: ${devicename}_mac_address
+      icon: "mdi:network"
 
 # Restart button
 button:
