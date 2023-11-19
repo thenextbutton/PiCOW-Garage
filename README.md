@@ -47,8 +47,12 @@ The majority of the config are in the substitutions within the header<br><br>
 <br><br>
 Running the esp code as is will produce the following controls and sensors on the default dashboard:
 <br>
-![Screenshot of a Home Assistant garage door entities.](https://github.com/thenextbutton/ESPGarage/blob/main/_readme_images/home_assistant_garage_area_overview.png?raw=true)
+![Screenshot of a Home Assistant garage door entities.](https://github.com/thenextbutton/PiCOW-Garage/blob/main/_readme_images/home_assistant_garage_area_overview.png?raw=true)
 <br><br>
 In devices the following config and diagnostics are available:
 <br>
-![Screenshot of a Home Assistant garage door entities.](https://github.com/thenextbutton/ESPGarage/blob/main/_readme_images/home_assistant_garage_config_diagnostic.png?raw=true)
+![Screenshot of a Home Assistant garage door entities.](https://github.com/thenextbutton/PiCOW-Garage/blob/main/_readme_images/home_assistant_garage_config_diagnostic.png?raw=true)<br><br>
+If using Apple Car Play, then it is possible via home assitant to publish the garage door cover to homekit to dispay the garage door controls when the car is near the home loation, just ensure Siri Suggestions is enabled:<br>
+![Screenshot of Siri Suggesstions in Dashboard.](https://github.com/thenextbutton/PiCOW-Garage/blob/9af56f3565fba93c72edb1e208e576e03d3eb1d9/_readme_images/Siri_Suggestions_in_Dashboard.PNG?raw=true)<br><br>
+![Screenshot of Garage Door OPEN in Dashboard.](https://github.com/thenextbutton/PiCOW-Garage/blob/main/_readme_images/CarPlay_Garage_Door_Open.PNG?raw=true)<br><br>
+![Screenshot of Garage Door CLOSING in Dashboard.](https://github.com/thenextbutton/PiCOW-Garage/blob/main/_readme_images/CarPlay_Garage_Door_Closing.PNG?raw=true)<br><br>
