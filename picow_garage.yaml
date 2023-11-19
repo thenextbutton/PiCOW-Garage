@@ -1,6 +1,6 @@
 substitutions: # https://esphome.io/guides/configuration-types.html#substitutions
   devicename: picow_garage
-  friendlyname: PiCOW_Garage
+  friendlyname: Pi COW
 
   fallback_ssid: <<ap_ssid_name>>
   fallback_ssid_password: <<ap_ssid_password>>
@@ -11,15 +11,24 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
   # Pulse the onboard LED light every XX milliseconds !! DO NOT PUT IT LOWER THAN 1000 !!
   status_led_pulse_time: "2000"
 
-  # How long in milliseconds it takes for the garage door to open and close
-  garage_door_open_time: "25000" 
-  garage_door_close_time: "25000"
+  # How long, in millieseconds, to wait before closing the garage door (when using the control box)
+  # This allows a user to exit via the garage door before the door is requested to be closed.
+  # If needing instant closure, set this to 0
+  control_box_close_wait_time: "30000"   
 
-  # How long in milliseconds to hold open the relays for the open, close and stop commands.
-  relay_open_hold_time: "2000"
-  relay_close_hold_time: "2000"
-  relay_stop_hold_time: "5000"
+  # How long, in milliseconds, it takes for the garage door to open and close, this will act as a timeout.
+  garage_door_time: "20000" 
+  garage_door_debounce_time: "500" # https://esphome.io/components/binary_sensor/gpio.html#debouncing-values
 
+  # How long, in milliseconds, to hold the contact for the open, close and stop commands.
+  contact_open_hold_time: "500"
+  contact_close_hold_time: "500"
+  contact_stop_hold_time: "5000"
+  contact_debounce_time: "10" # https://esphome.io/components/binary_sensor/gpio.html#debouncing-values
+
+  # Car Presence Sensor, HC-SR04 ultrasonic sensor
+  car_presence_detect_distance: "0.50" # distance is in meters to assume car is present ("HOME"), i.e. 0.50 is 50cm, 1.00 is 1meter
+  car_presence_detect_time: "30000" # time in seconds to "ping" to see if an object is present.
 
 esphome:
   name: ${devicename}
@@ -32,8 +41,8 @@ esphome:
         condition:
           - binary_sensor.is_on: ${devicename}_control_box_stop 
         then: 
-            #If it is then turn on the relay.
-          - switch.turn_on: ${devicename}_relay_stop 
+            #If it is then turn on the contact.
+          - switch.turn_on: ${devicename}_contact_stop 
        
 rp2040:
   board: rpipicow
@@ -88,6 +97,18 @@ binary_sensor:
     name: ${friendlyname} Power Status
     id: ${devicename}_power_status
 
+  - platform: template
+    name: ${friendlyname} Car Presence
+    device_class: presence
+    id: ${devicename}_car_presence_status
+    icon: "mdi:car"
+    lambda: |-
+      if (id(${devicename}_car_presence_distance).state < ${car_presence_detect_distance}) {
+            return true;
+      } else {
+            return false;
+      } 
+
 ###### START >> GARAGE DOOR OPEN/CLOSE CONTACT SENSOR(s) ######
 
   - platform: template
@@ -100,7 +121,7 @@ binary_sensor:
     id: ${devicename}_status
     device_class: problem
 
-# Door Open
+# Door OPEN
   - platform: gpio
     pin:
       number: 5
@@ -110,40 +131,22 @@ binary_sensor:
         output: false
         open_drain: false
         pulldown: false
-      inverted: false
-    id: ${devicename}_closed
+      inverted: true
+    id: ${devicename}_open
     internal: True # Will not publish to Home Assistant
     publish_initial_state: True # Sensor will publish its initial state at boot
+    filters:
+      - delayed_on: ${garage_door_debounce_time} ms # https://esphome.io/components/binary_sensor/gpio.html#debouncing-values
     on_state:
-      - delay: ${garage_door_open_time}ms # The length of time it takes for the door to open
-      - if:
+      - logger.log: "OPEN contact state change detected"
+      - wait_until:
           condition:
-            and: #check to see if the closed sensor is off and and the open sensor is on (Garage Door Open)
-             - binary_sensor.is_on: ${devicename}_open
-             - binary_sensor.is_off: ${devicename}_closed
-          then:
-            - binary_sensor.template.publish:
-                id: ${devicename}_status 
-                state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
-            - binary_sensor.template.publish:
-                id: ${devicename}_position
-                state: ON # Turn ON the sensor with device class Garage door this means OPEN 
-            # Remove the cover template publish (3 lines) below if not using ESP cover
-            - cover.template.publish:
-                id: ${devicename}_cover
-                state: OPEN
-      - if:
-          condition:
-            and: # Both senors are ON (the door is stuck between 2 sensors)
-              - binary_sensor.is_on: ${devicename}_open
-              - binary_sensor.is_on: ${devicename}_closed
-          then:   
-            - binary_sensor.template.publish:
-                id: ${devicename}_status
-                state: ON # The door is stuck between sensors, change the state to ON (PROBLEM DETECTED)
-
-
-# Door Closed
+            binary_sensor.is_on: ${devicename}_closed
+          timeout: ${garage_door_time} ms # The length of time it takes for the door to open
+      - logger.log: "Running Status Script"
+      - script.execute: ${devicename}_garage_door_status_script
+      
+# Door CLOSED
   - platform: gpio
     pin:
       number: 6
@@ -153,37 +156,20 @@ binary_sensor:
         output: false
         open_drain: false
         pulldown: false
-      inverted: false
-    id: ${devicename}_open
+      inverted: true
+    id: ${devicename}_closed
     internal: True # Will not publish to Home Assistant  
     publish_initial_state: True # sensor will publish its initial state at boot
+    filters:
+      - delayed_on: ${garage_door_debounce_time} ms # https://esphome.io/components/binary_sensor/gpio.html#debouncing-values
     on_state:
-      - delay: ${garage_door_close_time}ms # The length of time it takes for the door to close
-      - if:
+      - logger.log: "CLOSED contact state change detected"
+      - wait_until:
           condition:
-            and: #check to see if the open sensor is off and and the closed sensor is on (Garage Door Closed)
-             - binary_sensor.is_off: ${devicename}_open
-             - binary_sensor.is_on: ${devicename}_closed
-          then:
-            - binary_sensor.template.publish:
-                id: ${devicename}_status
-                state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
-            - binary_sensor.template.publish:
-                id: ${devicename}_position
-                state: OFF # Turn OFF the sensor with device class Garage door this means CLOSED 
-            # Remove the cover template publish (3 lines) below if not using ESP cover
-            - cover.template.publish:
-                id: ${devicename}_cover
-                state: CLOSED
-      - if:
-          condition:
-            and: # Both senors are ON (the door is stuck between 2 sensors)
-            - binary_sensor.is_on: ${devicename}_open
-            - binary_sensor.is_on: ${devicename}_closed
-          then:   
-            - binary_sensor.template.publish:
-               id: ${devicename}_status
-               state: ON # The door is stuck between sensors, change the state to ON (PROBLEM DETECTED)
+            binary_sensor.is_on: ${devicename}_open
+          timeout: ${garage_door_time} ms # The length of time it takes for the door to open
+      - logger.log: "Running Status Script"
+      - script.execute: ${devicename}_garage_door_status_script
 
 ###### END >> GARAGE DOOR OPEN/CLOSE CONTACT SENSOR(s) ######
 
@@ -200,13 +186,15 @@ binary_sensor:
       inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Open
     id: ${devicename}_control_box_open
+    filters:
+      - delayed_on: ${contact_debounce_time} ms # https://esphome.io/components/binary_sensor/gpio.html#debouncing-values
     on_press:
-      if: # I would like the relay switch to be enabled before sending the OPEN command
+      if: # I would like the enable switch to be ON before sending the OPEN command
         condition:
           - binary_sensor.is_on: ${devicename}_control_box_enabled
         then:
-          - switch.turn_off: ${devicename}_relay_close
-          - switch.turn_on: ${devicename}_relay_open
+          - switch.turn_off: ${devicename}_contact_close
+          - switch.turn_on: ${devicename}_contact_open
 
  # GPI for remote button press to CLOSE garage door
   - platform: gpio
@@ -218,13 +206,16 @@ binary_sensor:
       inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Close
     id: ${devicename}_control_box_close
+    filters:
+      - delayed_on: ${contact_debounce_time} ms # https://esphome.io/components/binary_sensor/gpio.html#debouncing-values
     on_press:
-      if: # I would like the relay switch to be enabled before sending the CLOSE command
+      if: # I would like the enable switch to be ON before sending the OPEN command
         condition:
           - binary_sensor.is_on: ${devicename}_control_box_enabled
         then:
-          - switch.turn_off: ${devicename}_relay_open
-          - switch.turn_on: ${devicename}_relay_close
+          - delay: ${control_box_close_wait_time} ms # Put a pause here to allow person to leave the garage
+          - switch.turn_off: ${devicename}_contact_open
+          - switch.turn_on: ${devicename}_contact_close
 
 # GPI for remote button press to STOP garage door
   - platform: gpio
@@ -233,11 +224,13 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
+      inverted: true # https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Stop
     id: ${devicename}_control_box_stop
+    filters:
+      - delayed_on: 10ms # https://esphome.io/components/binary_sensor/gpio.html#debouncing-values
     on_press:
-      - switch.turn_on: ${devicename}_relay_stop
+      - switch.turn_on: ${devicename}_contact_stop
       - logger.log: "${friendlyname} CONTROL BOX STOP PRESSED !!"
     on_release:
         - logger.log: "${friendlyname} CONTROL BOX STOP RELEASED !!"
@@ -251,9 +244,11 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: true #https://esphome.io/components/binary_sensor/gpio.html#inverting-values
+      inverted: true # https://esphome.io/components/binary_sensor/gpio.html#inverting-values
     name: ${friendlyname} Control Box Enabled
     id: ${devicename}_control_box_enabled
+    filters:
+      - delayed_on: 10ms # https://esphome.io/components/binary_sensor/gpio.html#debouncing-values
     on_multi_click: # https://esphome.io/components/binary_sensor/index.html#on-multi-click
     - timing:
           - OFF for at most 2000ms # Enable button should be OFF for under XXXX ms
@@ -267,14 +262,14 @@ binary_sensor:
 
 
 switch:
-###### START >> OUTPUTS TO GARAGE DOOR RELAY ######
+###### START >> OUTPUTS TO GARAGE DOOR contact ######
   
   - platform: template
     name: ${friendlyname} Open
     icon: "mdi:arrow-up-bold"
-    id: ${devicename}_relay_open
+    id: ${devicename}_contact_open
     lambda: |-
-      if (id(${devicename}_relay_open_internal).state) {
+      if (id(${devicename}_contact_open_internal).state) {
         return true;
       } else {
         return false;
@@ -284,24 +279,24 @@ switch:
         condition:
           - binary_sensor.is_off: ${devicename}_control_box_stop # Check to make sure the control box STOP is OFF
         then:
-          - switch.turn_off: ${devicename}_relay_close_internal
-          - switch.turn_off: ${devicename}_relay_stop_internal
+          - switch.turn_off: ${devicename}_contact_close_internal
+          - switch.turn_off: ${devicename}_contact_stop_internal
           - delay: 50ms
-          - switch.turn_on: ${devicename}_relay_open_internal
-          - delay: ${relay_open_hold_time} ms # Hold the relay for XX ms
-          - switch.turn_off: ${devicename}_relay_open_internal
+          - switch.turn_on: ${devicename}_contact_open_internal
+          - delay: ${contact_open_hold_time} ms # Hold the contact for XX ms
+          - switch.turn_off: ${devicename}_contact_open_internal
         else:
           - logger.log: "CANCEL OPEN - ${friendlyname} Control Box STOP ACTIVE !!"
     turn_off_action:
-      - switch.turn_off: ${devicename}_relay_open_internal
+      - switch.turn_off: ${devicename}_contact_open_internal
 
 
   - platform: template
     name: ${friendlyname} Close
     icon: "mdi:arrow-down-bold"
-    id: ${devicename}_relay_close
+    id: ${devicename}_contact_close
     lambda: |-
-      if (id(${devicename}_relay_close_internal).state) {
+      if (id(${devicename}_contact_close_internal).state) {
         return true;
       } else {
         return false;
@@ -311,54 +306,54 @@ switch:
         condition:
           - binary_sensor.is_off: ${devicename}_control_box_stop # Check to make sure the control box STOP is OFF
         then: 
-          - switch.turn_off: ${devicename}_relay_open_internal
-          - switch.turn_off: ${devicename}_relay_stop_internal
+          - switch.turn_off: ${devicename}_contact_open_internal
+          - switch.turn_off: ${devicename}_contact_stop_internal
           - delay: 50ms
-          - switch.turn_on: ${devicename}_relay_close_internal
-          - delay: ${relay_close_hold_time} ms # Hold the relay for XX ms
-          - switch.turn_off: ${devicename}_relay_close_internal
+          - switch.turn_on: ${devicename}_contact_close_internal
+          - delay: ${contact_close_hold_time} ms # Hold the contact for XX ms
+          - switch.turn_off: ${devicename}_contact_close_internal
         else:
           - logger.log: "CANCEL CLOSE - ${friendlyname} Control Box STOP ACTIVE !!"
     turn_off_action:
-      - switch.turn_off: ${devicename}_relay_close_internal
+      - switch.turn_off: ${devicename}_contact_close_internal
 
 
   - platform: template
     name: ${friendlyname} Stop
     icon: "mdi:stop"
-    id: ${devicename}_relay_stop
+    id: ${devicename}_contact_stop
     lambda: |-
-      if (id(${devicename}_relay_stop_internal).state) {
+      if (id(${devicename}_contact_stop_internal).state) {
         return true;
       } else {
         return false;
       }
     turn_on_action:
-      - switch.turn_off: ${devicename}_relay_open_internal
-      - switch.turn_off: ${devicename}_relay_close_internal
+      - switch.turn_off: ${devicename}_contact_open_internal
+      - switch.turn_off: ${devicename}_contact_close_internal
       - delay: 50ms
-      - switch.turn_on: ${devicename}_relay_stop_internal
-      - delay: ${relay_stop_hold_time} ms # Hold the relay for XX ms
-      - while: # Going to LOOP This until the stop button is released
+      - switch.turn_on: ${devicename}_contact_stop_internal
+      - delay: ${contact_stop_hold_time} ms # Hold the contact for XX ms
+      - while: # Going to LOOP this until the stop button is released
           condition:
             - binary_sensor.is_on: ${devicename}_control_box_stop
           then:
             - logger.log: "${friendlyname} Control Box STOP STILL ACTIVE !! - Looping"
             - delay: 5s
-      - switch.turn_off: ${devicename}_relay_stop_internal
+      - switch.turn_off: ${devicename}_contact_stop_internal
     turn_off_action:
       if:
         condition:
           - binary_sensor.is_off: ${devicename}_control_box_stop # Check to make sure the control box STOP is OFF
         then:
-          - switch.turn_off: ${devicename}_relay_stop_internal
+          - switch.turn_off: ${devicename}_contact_stop_internal
         else:
           - logger.log: "${friendlyname} Control Box STOP ACTIVE Cancelling Turn OFF Request!!"
 
 
-  # RELAY OPEN
+  # Contact OPEN
   - platform: gpio
-    id: ${devicename}_relay_open_internal
+    id: ${devicename}_contact_open_internal
     internal: true
     pin:
       number: 0
@@ -370,9 +365,9 @@ switch:
         open_drain: false
     
   
-  # RELAY CLOSE
+  # Contact CLOSE
   - platform: gpio
-    id: ${devicename}_relay_close_internal
+    id: ${devicename}_contact_close_internal
     internal: true
     pin:
       number: 1
@@ -384,9 +379,9 @@ switch:
         open_drain: false
 
   
-  # RELAY STOP
+  # Contact STOP
   - platform: gpio
-    id: ${devicename}_relay_stop_internal
+    id: ${devicename}_contact_stop_internal
     internal: true
     pin:
       number: 2
@@ -397,7 +392,7 @@ switch:
         output: true
         open_drain: false
 
-###### END >> OUTPUTS TO GARAGE DOOR RELAY ######
+###### END >> OUTPUTS TO GARAGE DOOR contact ######
 
 #Temprature Sensor
 dallas:
@@ -405,6 +400,18 @@ dallas:
         number: 17 # Monitor Pin on the Pico W for the sensor(s)
 
 sensor:
+
+ # https://esphome.io/components/sensor/ultrasonic.html
+  - platform: ultrasonic
+    trigger_pin: 28
+    echo_pin: 27
+    name: ${friendlyname} Car Presence Distance Sensor
+    id: ${devicename}_car_presence_distance
+    update_interval: ${car_presence_detect_time} ms
+    unit_of_measurement: "m"
+    accuracy_decimals: 2
+    icon: "mdi:arrow-expand-horizontal"
+    internal: true # Comment this out in order to display stats in Home Assistant
 
   # https://esphome.io/components/sensor/dallas.html
   - platform: dallas
@@ -442,7 +449,7 @@ sensor:
   - platform: uptime # Uptime of the PicoW
     update_interval: 5s
     id: ${devicename}_uptime_s
-
+      
 # Convert the Uptime to Days Hours Minutes Seconds
 # first duration is to get around an issue on startup
 # where uptime shows it has been on line for 136 years
@@ -507,8 +514,67 @@ cover:
     id: ${devicename}_cover
     name: ${friendlyname}
     open_action:
-      - switch.turn_on: ${devicename}_relay_open
+      - switch.turn_on: ${devicename}_contact_open
     close_action:
-      - switch.turn_on: ${devicename}_relay_close
+      - switch.turn_on: ${devicename}_contact_close
     stop_action:
-      - switch.turn_on: ${devicename}_relay_stop
+      - switch.turn_on: ${devicename}_contact_stop
+
+
+###### START >> Garage Door position logic ######
+script: # https://esphome.io/guides/automations.html#script-component
+  - id: ${devicename}_garage_door_status_script
+    mode: single
+    then:
+      - if:
+          condition:
+            and: # Check to see if the open sensor is OFF and and the closed sensor is ON (Garage Door Closed)
+             - binary_sensor.is_off: ${devicename}_open
+             - binary_sensor.is_on: ${devicename}_closed
+          then:
+            - binary_sensor.template.publish:
+                id: ${devicename}_status
+                state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
+            - binary_sensor.template.publish:
+                id: ${devicename}_position
+                state: OFF # Turn OFF the sensor with device class Garage door this means CLOSED 
+            # Remove the cover template publish (3 lines) below if not using ESP cover
+            - cover.template.publish:
+                id: ${devicename}_cover
+                state: CLOSED
+      - if:
+          condition:
+            and: # Check to see if the open sensor is ON and and the closed sensor is OFF (Garage Door Closed)
+             - binary_sensor.is_on: ${devicename}_open
+             - binary_sensor.is_off: ${devicename}_closed
+          then:
+            - binary_sensor.template.publish:
+                id: ${devicename}_status
+                state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
+            - binary_sensor.template.publish:
+                id: ${devicename}_position
+                state: ON # Turn ON the sensor with device class Garage door this means OPEN
+            # Remove the cover template publish (3 lines) below if not using ESP cover
+            - cover.template.publish:
+                id: ${devicename}_cover
+                state: OPEN
+      - if:
+          condition:
+            and: # The sensors are not in a valid state.
+                - binary_sensor.is_on: ${devicename}_open
+                - binary_sensor.is_on: ${devicename}_closed
+          then:   
+            - binary_sensor.template.publish:
+               id: ${devicename}_status
+               state: ON # Change the state to ON (PROBLEM DETECTED)
+      - if:
+          condition:
+            and: # The sensors are not in a valid state.
+                - binary_sensor.is_off: ${devicename}_open
+                - binary_sensor.is_off: ${devicename}_closed
+          then:   
+            - binary_sensor.template.publish:
+               id: ${devicename}_status
+               state: ON # Change the state to ON (PROBLEM DETECTED)
+
+###### END >> Garage Door position logic ######
