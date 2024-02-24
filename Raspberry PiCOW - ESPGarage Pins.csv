@@ -11,11 +11,11 @@ Pin,Description,Cable Colour,Notes,Pin,Description,Cable Colour,Notes
 10,GP7,,,30,GP26,,
 11,GP8,,External Control Box OPEN button,31,RUN,,
 12,GP9,,External Control Box CLOSE button,32,GP22,,
-13,GND,,,33,GND,Black,GND LED
-14,GP10,,External Control Box STOP button,34,GP21,Blue,+3v LED
+13,GND,,,33,GND,Black,GND Pulse LED
+14,GP10,,External Control Box STOP button,34,GP21,Blue,+3v Pulse LED
 15,GP11,,External Control Box ENABLE button,35,GP20,,
-16,GP12,,,36,GP19,,
-17,GP13,,,37,GP18,,
+16,GP12,White,OLED SDA,36,GP19,,
+17,GP13,Blue,OLED SCL,37,GP18,,
 18,GND,,,38,GND,,Ground to DS18B20 Temperature Sensor
 19,GP14,,,39,GP17,,DS18B20 Temperature Sensor Communication Pin
 20,GP15,,,40,GP16,,
