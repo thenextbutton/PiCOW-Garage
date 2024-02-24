@@ -11,8 +11,8 @@ Pin,Description,Cable Colour,Notes,Pin,Description,Cable Colour,Notes
 10,GP7,,,30,GP26,,
 11,GP8,,External Control Box OPEN button,31,RUN,,
 12,GP9,,External Control Box CLOSE button,32,GP22,,
-13,GND,,,33,GND,,
-14,GP10,,External Control Box STOP button,34,GP21,,
+13,GND,,,33,GND,Black,GND LED
+14,GP10,,External Control Box STOP button,34,GP21,Blue,+v LED
 15,GP11,,External Control Box ENABLE button,35,GP20,,
 16,GP12,,,36,GP19,,
 17,GP13,,,37,GP18,,
