@@ -1,9 +1,9 @@
 Pin,Description,Cable Colour,Notes,Pin,Description,Cable Colour,Notes
 1,GP0,,Relay to Garage Door Motor - OPEN,21,VBUS,,
-2,GP1,,Relay to Garage Door Motor - CLOSE,22,VSYS,,+5 volts to HC-SR04 Ultrasonic sensor
-3,GND,,,23,GND,,Ground to HC-SR04 Ultrasonic sensor
+2,GP1,,Relay to Garage Door Motor - CLOSE,22,VSYS,Purple,+5 volts to HC-SR04 Ultrasonic sensor
+3,GND,,,23,GND,Black,Ground to HC-SR04 Ultrasonic sensor
 4,GP2,,Relay to Garage Door Motor - STOP,24,EN,,
-5,GP3,,,25,3V3,,Volts to to DS18B20 Temperature Sensor + 4.7K Ohm resistor to GP17 (Pin 39)
+5,GP3,,,25,3V3,Red,Volts to to DS18B20 Temperature Sensor + 4.7K Ohm resistor to GP17 (Pin 39) + OLED VCC
 6,GP4,,,26,VREF,,
 7,GP5,,Contact for Garage Door sensor OPENED,27,GP28,,Trigger pin for HC-SR04 Ultrasonic sensor
 8,GND,,,28,GND,,
@@ -16,6 +16,6 @@ Pin,Description,Cable Colour,Notes,Pin,Description,Cable Colour,Notes
 15,GP11,,External Control Box ENABLE button,35,GP20,,
 16,GP12,White,OLED SDA,36,GP19,,
 17,GP13,Blue,OLED SCL,37,GP18,,
-18,GND,,,38,GND,,Ground to DS18B20 Temperature Sensor
+18,GND,,,38,GND,Black,Ground to DS18B20 Temperature Sensor + OLED GND
 19,GP14,,,39,GP17,,DS18B20 Temperature Sensor Communication Pin
 20,GP15,,,40,GP16,,
