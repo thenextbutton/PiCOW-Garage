@@ -10,7 +10,7 @@ Items used in the project:
 3 x Wago Splicing Connectors with Levers (221 Series - 3 Conductor) <br>
 1 x Right angle micros usb cable <br>
 1 x OLED SSD1306 <br>
-1 x 6mm Oxidized Black LED Metal (Green) <br>
+1 x 6mm Oxidized Black LED Metal (3-6v Green) <br>
 1 x British General IP55 weatherproof outdoor enclosure (180MM X 99MM X 111MM) <br>
 2 x British General plastic cable gland 20mm <br>
 1 x British General plastic cable gland 25mm <br>
