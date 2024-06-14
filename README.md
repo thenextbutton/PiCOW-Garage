@@ -1,3 +1,5 @@
+![PiCOW Garage_logo](https://github.com/thenextbutton/PiCOW-Garage/assets/64163980/6de8b010-c67c-4f27-8822-ed3e0d929126)
+
 This "project" is me playing around, integrating a Raspberry Pi Pico W in to Home Assistant ESPHome to be used as a Garage Door Opener.
 
 Items used in the project:
