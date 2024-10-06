@@ -6,7 +6,7 @@ Items used in the project:
 
 1 x Raspberry Pi Pico W <br>
 1 x FREENOVE Breakout Board for Raspberry Pi Pico W <br>
-1 x 47K Ohm resistor <br>
+1 x 4.7K Ohm resistor <br>
 2 x DS18B20 Digital Temperature Sensor <br>
 1 x Ultrasonic Distance Sensor HC-SR04 <br>
 3 x Wago Splicing Connectors with Levers (221 Series - 3 Conductor) <br>
