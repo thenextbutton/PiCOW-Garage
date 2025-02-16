@@ -30,9 +30,16 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
   car_presence_detect_distance: "0.50" # distance is in meters to assume car is present ("HOME"), i.e. 0.50 is 50cm, 1.00 is 1meter
   car_presence_detect_time: "30000" # time in seconds to "ping" to see if an object is present.
 
+  # Dallas Temperature Sensor  https://esphome.io/components/sensor/dallas_temp.html
+  dallas_outdoor_temperature_sensor_address: "0x560621302c840b28"
+  dallas_outdoor_temperature_update_interval: "120"
+  dallas_case_temperature_sensor_address: "0x623ce60457dbca28"
+  dallas_case_temperature_update_interval: "120"
+
+
 esphome:
   name: ${devicename}
-  min_version: 2023.10.6
+    min_version: 2024.12.4 # https://esphome.io/components/esphome.html#minimum-esphome-version
   on_boot: # https://esphome.io/components/esphome.html#on-boot
     priority: -100.0
     then:
@@ -60,6 +67,7 @@ api:
     key: ${api_encryption_key}
 
 ota:
+- platform: esphome
   password: ${ota_password}
 
 wifi:
@@ -69,9 +77,9 @@ wifi:
   power_save_mode: none
 
   # Enable fallback hotspot in case wifi connection fails
-  ap:
-    ssid: ${fallback_ssid}
-    password: ${fallback_ssid_password}
+ap:
+  ssid: ${fallback_ssid}
+  password: ${fallback_ssid_password}
 
 output:
   # Built-in LED
@@ -395,10 +403,11 @@ switch:
 ###### END >> OUTPUTS TO GARAGE DOOR contact ######
 
 #Temprature Sensor
-dallas:
-    - pin:
-        number: 17 # Monitor Pin on the Pico W for the sensor(s)
-
+# https://esphome.io/components/one_wire.html
+one_wire:
+  - platform: gpio
+    pin: GPIO17
+    
 sensor:
 
  # https://esphome.io/components/sensor/ultrasonic.html
@@ -413,16 +422,18 @@ sensor:
     icon: "mdi:arrow-expand-horizontal"
     internal: true # Comment this out in order to display stats in Home Assistant
 
-  # https://esphome.io/components/sensor/dallas.html
-  - platform: dallas
-    address: 0x560621302c840b28 # Sensor Address
+  # https://esphome.io/components/sensor/dallas_temp.html
+  - platform: dallas_temp
+    address: ${dallas_outdoor_temperature_sensor_address} # Sensor Address
     name: ${friendlyname} Outdoor Temperature # Name of the Sensor
     id: ${devicename}_dallas_outdoor_temperature
+    update_interval: ${dallas_outdoor_temperature_update_interval}s
 
-  - platform: dallas
-    address: 0x623ce60457dbca28 # Sensor Address
+  - platform: dallas_temp
+    address: ${dallas_case_temperature_sensor_address} # Sensor Address
     name: ${friendlyname} Case Temperature # Name of the Sensor
     id: ${devicename}_dallas_case_temperature
+    update_interval: ${dallas_case_temperature_update_interval}s
   
   # https://esphome.io/components/sensor/internal_temperature.html
   - platform: internal_temperature
