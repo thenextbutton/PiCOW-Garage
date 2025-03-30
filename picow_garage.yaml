@@ -36,10 +36,12 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
   dallas_case_temperature_sensor_address: "0x623ce60457dbca28"
   dallas_case_temperature_update_interval: "120"
 
+  # Values for the OLED Display
+  oled_display_initial_value: "${devicename}"
 
 esphome:
   name: ${devicename}
-    min_version: 2024.12.4 # https://esphome.io/components/esphome.html#minimum-esphome-version
+  min_version: 2024.12.4 # https://esphome.io/components/esphome.html#minimum-esphome-version
   on_boot: # https://esphome.io/components/esphome.html#on-boot
     priority: -100.0
     then:
@@ -48,14 +50,17 @@ esphome:
         condition:
           - binary_sensor.is_on: ${devicename}_control_box_stop 
         then: 
-            #If it is then turn on the contact.
+            # If it is then turn on the contact.
           - switch.turn_on: ${devicename}_contact_stop 
-       
+  
+
+# https://esphome.io/components/rp2040.html#configuration-variables
 rp2040:
   board: rpipicow
-  framework:
+ # framework:
     # Required until https://github.com/platformio/platform-raspberrypi/pull/36 is merged
-    platform_version: https://github.com/maxgerhardt/platform-raspberrypi.git
+   # platform_version: https://github.com/maxgerhardt/platform-raspberrypi.git
+
 
 # Enable logging https://esphome.io/components/logger.html#
 logger:
@@ -66,9 +71,10 @@ api:
   encryption:
     key: ${api_encryption_key}
 
+# https://next.esphome.io/components/ota/esphome
 ota:
-- platform: esphome
-  password: ${ota_password}
+  - platform: esphome
+    password: ${ota_password}
 
 wifi:
   ssid: !secret wifi_ssid
@@ -77,25 +83,50 @@ wifi:
   power_save_mode: none
 
   # Enable fallback hotspot in case wifi connection fails
-ap:
-  ssid: ${fallback_ssid}
-  password: ${fallback_ssid_password}
+  ap:
+    ssid: ${fallback_ssid}
+    password: ${fallback_ssid_password}
+
+# Get the time from Home Assistant to sync the onboard real-time clock.
+time:
+  - platform: homeassistant
+    id: ${devicename}_time
 
 output:
-  # Built-in LED
+  # OnBoard Pico W LED
   - platform: gpio
     pin:
       number: 32  # 25 for Pico (non-W)
       mode: output
-    id: ${devicename}_LED
+    id: ${devicename}_OnBoard_LED
+
+  # Output pin on the Pico W
+  # LED Status Pulse (confidence)
+  - platform: gpio
+    pin:
+      number: 21
+      mode: output
+    id: ${devicename}_External_LED
+
 
 # Pulse the onboard LED every x seconds, status light
 interval: 
   - interval: ${status_led_pulse_time}ms
     then:
-      - output.turn_on: ${devicename}_LED
-      - delay: 100ms
-      - output.turn_off: ${devicename}_LED
+      - output.turn_on: ${devicename}_OnBoard_LED
+      - output.turn_on: ${devicename}_External_LED
+      - delay: 500ms
+      - output.turn_off: ${devicename}_OnBoard_LED
+      - output.turn_off: ${devicename}_External_LED
+
+
+# https://esphome.io/components/globals.html
+# Set the information text on the OLED display
+globals:
+  # Store the OLED Display Message here
+  - id: oled_info_global
+    type: std::string
+    initial_value: '"${oled_display_initial_value}"'
 
 
 binary_sensor:
@@ -203,6 +234,12 @@ binary_sensor:
         then:
           - switch.turn_off: ${devicename}_contact_close
           - switch.turn_on: ${devicename}_contact_open
+          - globals.set: # Update OLED Display
+              id: oled_info_global
+              value: '"OPENING"'
+          - component.update: oled_info_text
+          - component.update: oled_display
+
 
  # GPI for remote button press to CLOSE garage door
   - platform: gpio
@@ -221,9 +258,15 @@ binary_sensor:
         condition:
           - binary_sensor.is_on: ${devicename}_control_box_enabled
         then:
-          - delay: ${control_box_close_wait_time} ms # Put a pause here to allow person to leave the garage
+          - delay: ${control_box_close_wait_time} ms # Put a pause here to allow time to leave the garage
           - switch.turn_off: ${devicename}_contact_open
           - switch.turn_on: ${devicename}_contact_close
+          - globals.set: # Update OLED Display
+              id: oled_info_global
+              value: '"CLOSING"'
+          - component.update: oled_info_text
+          - component.update: oled_display
+
 
 # GPI for remote button press to STOP garage door
   - platform: gpio
@@ -238,11 +281,19 @@ binary_sensor:
     filters:
       - delayed_on: 10ms # https://esphome.io/components/binary_sensor/gpio.html#debouncing-values
     on_press:
+   #  Notice there are no conditions, if I press STOP.. I want it to trigger the STOP Command.
       - switch.turn_on: ${devicename}_contact_stop
       - logger.log: "${friendlyname} CONTROL BOX STOP PRESSED !!"
+      - globals.set: # Update OLED Display
+          id: oled_info_global
+          value: '"E-STOP"'
+      - component.update: oled_info_text
+      - component.update: oled_display
+
     on_release:
         - logger.log: "${friendlyname} CONTROL BOX STOP RELEASED !!"
-      # ^^ Notice there are no conditions, if I press STOP.. I want it to trigger the STOP Command.
+        # Emergency STOP released, find the door status.
+        - script.execute: ${devicename}_garage_door_status_script
 
 # GPI for remote switch to ENABLE garage door external control box
 # Also used for resetting the PiCOW, if pattern is matched
@@ -262,8 +313,14 @@ binary_sensor:
           - OFF for at most 2000ms # Enable button should be OFF for under XXXX ms
           - ON for at least 500ms # Enable button should be ON for over XXXms
       then:
-        - logger.log: Control Box Reset ${devicename}
+        - logger.log: "Control Box Reset ${devicename}"
         - delay: 1000ms
+        - globals.set: # Update OLED Display
+            id: oled_info_global
+            value: '"RESTART"'
+        - component.update: oled_info_text
+        - component.update: oled_display
+        - delay: 5000ms
         - button.press: ${devicename}_restart
 
 ###### END >> EXTERNAL BOX INPUTS ######
@@ -402,12 +459,12 @@ switch:
 
 ###### END >> OUTPUTS TO GARAGE DOOR contact ######
 
-#Temprature Sensor
+
 # https://esphome.io/components/one_wire.html
 one_wire:
   - platform: gpio
     pin: GPIO17
-    
+
 sensor:
 
  # https://esphome.io/components/sensor/ultrasonic.html
@@ -434,7 +491,7 @@ sensor:
     name: ${friendlyname} Case Temperature # Name of the Sensor
     id: ${devicename}_dallas_case_temperature
     update_interval: ${dallas_case_temperature_update_interval}s
-  
+
   # https://esphome.io/components/sensor/internal_temperature.html
   - platform: internal_temperature
     name: ${friendlyname} Temperature
@@ -443,24 +500,28 @@ sensor:
   - platform: wifi_signal # Report the WiFi signal strength/RSSI in dB
     name: ${friendlyname} WiFi Signal (dB)
     id: ${devicename}_wifi_signal_db
-    update_interval: 60s
+    update_interval: 30s
     icon: mdi:wifi
     entity_category: "diagnostic"
+    internal: true # Comment this out in order to display stats in Home Assistant
 
   - platform: copy # Report the WiFi signal strength in %
     source_id: ${devicename}_wifi_signal_db
-    name: ${friendlyname} WiFi Signal (%)
-    id: ${devicename}_wifi_signal_percentage
+    name: ${friendlyname} WiFi Signal Numeric (%)
+    id: ${devicename}_wifi_signal_percentage_numeric
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
-    unit_of_measurement: " %"
+    unit_of_measurement: "Signal %"
     icon: mdi:wifi
     entity_category: "diagnostic"
 
   - platform: uptime # Uptime of the PicoW
-    update_interval: 5s
+    update_interval: 30s
     id: ${devicename}_uptime_s
-      
+    internal: true # Comment this out in order to display stats in Home Assistant
+
+
+
 # Convert the Uptime to Days Hours Minutes Seconds
 # first duration is to get around an issue on startup
 # where uptime shows it has been on line for 136 years
@@ -468,7 +529,7 @@ text_sensor:
   - platform: template
     name: ${friendlyname} Uptime
     icon: mdi:clock-start
-    update_interval: 60s
+    update_interval: 600s
     lambda: |-
       uint32_t dur = id(${devicename}_uptime_s).state;
       int dys = 0;
@@ -496,6 +557,18 @@ text_sensor:
       sprintf(buffer, "%02ud %02uh %02um %02us", dys, hrs, mnts, dur);
       return {buffer};
 
+  - platform: template
+    name: "${friendlyname} WiFi Signal (%)"
+    id: ${devicename}_wifi_signal_percentage
+    lambda: |-
+      char buffer[8]; // Adjust buffer size if needed based on expected precision
+      sprintf(buffer, "%.0f%%", id(${devicename}_wifi_signal_percentage_numeric).state);
+      return {buffer};
+    update_interval: 30s
+    icon: mdi:percent
+    entity_category: "diagnostic"
+    internal: true
+
   - platform: wifi_info
     ip_address:
       name: ${friendlyname} IP Address
@@ -511,6 +584,13 @@ text_sensor:
       id: ${devicename}_mac_address
       icon: "mdi:network"
 
+  - platform: template
+    name: ${friendlyname} OLED Information Display
+    id: oled_info_text
+    lambda: 'return id(oled_info_global);'
+    update_interval: never
+
+
 # Restart button
 button:
   - platform: restart
@@ -519,7 +599,8 @@ button:
     icon: "mdi:power"
     on_press:
       then:
-      - logger.log: "${devicename} Restarting !!"
+      - logger.log: "${devicename} Restart Requested !!"
+      - button.press: ${devicename}_restart
 
 # Home Assistant Cover
 cover:
@@ -536,10 +617,12 @@ cover:
 
 
 ###### START >> Garage Door position logic ######
+
 script: # https://esphome.io/guides/automations.html#script-component
   - id: ${devicename}_garage_door_status_script
     mode: single
     then:
+      - logger.log: "SCRIPT: ${devicename} Door Status Script"
       - if:
           condition:
             and: # Check to see if the open sensor is OFF and and the closed sensor is ON (Garage Door Closed)
@@ -549,6 +632,10 @@ script: # https://esphome.io/guides/automations.html#script-component
             - binary_sensor.template.publish:
                 id: ${devicename}_status
                 state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
+            - logger.log: "SCRIPT: ${devicename} Door Status CLOSED"
+            - globals.set: # Update OLED Display
+                id: oled_info_global
+                value: '"DOOR CLOSED"'
             - binary_sensor.template.publish:
                 id: ${devicename}_position
                 state: OFF # Turn OFF the sensor with device class Garage door this means CLOSED 
@@ -558,13 +645,17 @@ script: # https://esphome.io/guides/automations.html#script-component
                 state: CLOSED
       - if:
           condition:
-            and: # Check to see if the open sensor is ON and and the closed sensor is OFF (Garage Door Closed)
+            and: # Check to see if the open sensor is ON and and the closed sensor is OFF (Garage Door Open)
              - binary_sensor.is_on: ${devicename}_open
              - binary_sensor.is_off: ${devicename}_closed
           then:
             - binary_sensor.template.publish:
                 id: ${devicename}_status
                 state: OFF # There are no Errors, at least 1 sensor is ON, change the state to OFF (ALL IS OK)
+            - logger.log: "SCRIPT: ${devicename} Door Status OPEN"
+            - globals.set: # Update OLED Display
+                id: oled_info_global
+                value: '"DOOR OPEN"'
             - binary_sensor.template.publish:
                 id: ${devicename}_position
                 state: ON # Turn ON the sensor with device class Garage door this means OPEN
@@ -578,6 +669,10 @@ script: # https://esphome.io/guides/automations.html#script-component
                 - binary_sensor.is_on: ${devicename}_open
                 - binary_sensor.is_on: ${devicename}_closed
           then:   
+            - logger.log: "SCRIPT: ${devicename} Door Status ERROR"
+            - globals.set: # Update OLED Display
+                id: oled_info_global
+                value: '"DOOR ERROR"'
             - binary_sensor.template.publish:
                id: ${devicename}_status
                state: ON # Change the state to ON (PROBLEM DETECTED)
@@ -586,9 +681,100 @@ script: # https://esphome.io/guides/automations.html#script-component
             and: # The sensors are not in a valid state.
                 - binary_sensor.is_off: ${devicename}_open
                 - binary_sensor.is_off: ${devicename}_closed
-          then:   
+          then:
+            - logger.log: "SCRIPT: ${devicename} Door Status ERROR"
+            - globals.set: # Update OLED Display
+                id: oled_info_global
+                value: '"DOOR ERROR"'
             - binary_sensor.template.publish:
                id: ${devicename}_status
                state: ON # Change the state to ON (PROBLEM DETECTED)
+      # Refresh OLED Screen
+      - component.update: oled_info_text
+      - component.update: oled_display
+
 
 ###### END >> Garage Door position logic ######
+
+###### START >> OLED Display ######
+
+font:
+  - file: 'font/consolas.ttf'
+    id: font1
+    size: 10
+
+  - file: 'font/consolas.ttf'
+    id: font2
+    size: 12
+
+  - file: 'font/consolas.ttf'
+    id: font3
+    size: 18
+
+# https://pictogrammers.github.io/@mdi/font/6.5.95/
+  - file: 'font/materialdesignicons-webfont.ttf'
+    id: icon_font_mdi
+    size: 12
+    glyphs: [
+      "󰤯", # mdi-wifi-strength-alert-outline
+      "󰤟", # mdi-wifi-strength-1
+      "󰤢", # mdi-wifi-strength-2
+      "󰤥", # mdi-wifi-strength-3
+      "󰤨"  # mdi-wifi-strength-4
+    ]
+
+
+# https://esphome.io/components/i2c.html
+i2c:
+  sda: 12
+  scl: 13
+  scan: True
+  frequency: 400kHz
+
+display:
+  - platform: ssd1306_i2c #https://esphome.io/components/display/ssd1306.html
+    model: "SSD1306 128x64"
+    address: 0x3C
+    id: oled_display
+    lambda: |-
+      // Print the garage friendly name on screen (Top Left)
+      it.printf(0, 0, id(font2), TextAlign::TOP_LEFT, "${friendlyname}");
+
+      // Display WiFi Signal Graphic (Top Right) using Font Glyphs
+      int rssi = id(${devicename}_wifi_signal_db).state;
+      const uint16_t icon_x = it.get_width() - 30; // Adjust X position based on font size
+      const uint16_t icon_y = 0;
+
+      if (rssi < -85) {
+        it.printf(icon_x, icon_y, id(icon_font_mdi), TextAlign::TOP_RIGHT, "󰤯"); // mdi-wifi-strength-alert-outline
+      } else if (rssi < -70) {
+        it.printf(icon_x, icon_y, id(icon_font_mdi), TextAlign::TOP_RIGHT, "󰤟"); // mdi-wifi-strength-1
+      } else if (rssi < -55) {
+        it.printf(icon_x, icon_y, id(icon_font_mdi), TextAlign::TOP_RIGHT, "󰤢"); // mdi-wifi-strength-2
+      } else {
+        it.printf(icon_x, icon_y, id(icon_font_mdi), TextAlign::TOP_RIGHT, "󰤨"); // mdi-wifi-strength-4
+      }
+
+      // Print the WiFi % Information (Top Right)
+      it.printf(it.get_width(), 2, id(font2), TextAlign::TOP_RIGHT, "%s", id(${devicename}_wifi_signal_percentage).state.c_str());
+
+      // Print date in DD/MM/YYYY (Bottom Left)
+      it.strftime(0, 60, id(font1), TextAlign::BASELINE_LEFT, "%d/%m/%Y", id(${devicename}_time).now());
+
+      // Print time in HH:MM format (Bottom Right)
+      it.strftime(127, 60, id(font1), TextAlign::BASELINE_RIGHT, "%H:%M:%S", id(${devicename}_time).now());
+
+      // Information text in the center of the screen 
+      String text_to_center = String(id(oled_info_text).state.c_str());
+      int screen_width = it.get_width();
+      int screen_height = it.get_height();
+      auto font = id(font3);
+      int font_height = font->get_height();
+      int text_width = text_to_center.length() * 10; 
+
+      int center_x = (screen_width - text_width) / 2;
+      int center_y = (((screen_height - font_height) / 2)+3);
+
+      it.print(center_x, center_y, font, TextAlign::LEFT, text_to_center.c_str());
+
+###### END >> OLED Display ######
