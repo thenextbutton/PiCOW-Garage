@@ -1,62 +1,131 @@
-![PiCOW Garage_logo](https://github.com/thenextbutton/PiCOW-Garage/assets/64163980/6de8b010-c67c-4f27-8822-ed3e0d929126)
+# 🏡 PiCOW Garage: Home Assistant ESPHome Garage Door Opener
 
-This "project" is me playing around, integrating a Raspberry Pi Pico W in to Home Assistant ESPHome to be used as a Garage Door Opener.
+This project demonstrates how to integrate a **Raspberry Pi Pico W** with **Home Assistant ESPHome** to create a smart garage door opener. It's a fun exploration of custom hardware and smart home automation! 
 
-Items used in the project:
+---
 
-1 x Raspberry Pi Pico W <br>
-1 x FREENOVE Breakout Board for Raspberry Pi Pico W <br>
-1 x 4.7K Ohm resistor <br>
-2 x DS18B20 Digital Temperature Sensor <br>
-1 x Ultrasonic Distance Sensor HC-SR04 <br>
-3 x Wago Splicing Connectors with Levers (221 Series - 3 Conductor) <br>
-1 x Right angle micros usb cable <br>
-1 x OLED SSD1306 (This is still work in progress)<br>
-1 x 6mm Oxidized Black LED Metal (3-6v Green) <br>
-1 x British General IP55 weatherproof outdoor enclosure (180MM X 99MM X 111MM) <br>
-2 x British General plastic cable gland 20mm <br>
-1 x British General plastic cable gland 25mm <br>
+## 📖 Table of Contents
 
-4 x m2 Nylon stand offs <br>
-4 x m2 Nylon screws <br>
-4 x m2 Nylon washers <br>
-4 x m2 Nylon bolts <br>
+* [Project Overview](#-project-overview)
+* [Hardware Components](#-hardware-components)
+* [Configuration Changes](-#configuration-changes)
+* [Home Assistant Integration](#-home-assistant-integration)
+* [Apple CarPlay Integration](#-apple-carplay-integration)
+* [Work in Progress](#-work-in-progress)
+* [Contributing](#-contributing)
+* [License](#-license)
 
-1 x 2mm Drill bit <br>
-1 x Countersink Drill bit <br>
+---
 
-1 x Waterproof button box 22mm (4 hole) <br>
-2 x 22mm Momentary button arrow (black background, white arrow) (LA38A-11BN) <br>
-1 x 22mm Self Locking Red Emergency push button (LA38A-11ZS) <br>
-1 x 22mm 2 position rotating switch (LA38-11x/21) <br>
+## 🔭 Project Overview
 
-5 core cable, length depends on distance to run from PiCOW to control box <br>
-4 core cable, length depends on distance to run from PiCOW to Garage door motor <br>
-4 kynar wires, from the HC-SR04 to the PiCOW for the Ultrasonic sensor <br><br>
+<img src="https://github.com/thenextbutton/PiCOW-Garage/assets/64163980/6de8b010-c67c-4f27-8822-ed3e0d929126" alt="PiCOW Garage Logo" width="225" height="225"><br>
+This project is my personal exploration into custom hardware and home automation, specifically detailing the integration of a **Raspberry Pi Pico W** into **Home Assistant ESPHome** for use as a smart garage door opener.
 
 
-###########################################<br>
-Things to change before deploying the code:<br>
-The majority of the config are in the substitutions within the header<br><br>
+---
 
-  devicename: picow_garage<br>
-  friendlyname: PiCOW_Garage<br><br>
+## 🛒 Hardware Components
 
-  fallback_ssid: <<ap_ssid_name>> <br>
-  fallback_ssid_password: <<ap_ssid_password>><br><br>
+Here's a list of the components used in this project:
+
+**Core Electronics:**
+* 1 x **Raspberry Pi Pico W** 
+* 1 x **FREENOVE Breakout Board** for Raspberry Pi Pico W
+* 1 x **4.7K Ohm resistor**
+* 2 x **DS18B20 Digital Temperature Sensor** 
+* 1 x **Ultrasonic Distance Sensor HC-SR04** 
+* 1 x **OLED SSD1306** (Work in progress) 
+* 1 x **6mm Oxidized Black LED Metal** (3-6v Green) 
+
+**Wiring & Connectors:**
+* 3 x **Wago Splicing Connectors** with Levers (221 Series - 3 Conductor)
+* 1 x **Right angle micro USB cable**
+* **5 core cable** (length depends on distance to control box)
+* **4 core cable** (length depends on distance to garage door motor)
+* **4 Kynar wires** (for HC-SR04 to PiCOW)
+
+**Enclosure & Mounting:**
+* 1 x **British General IP55 weatherproof outdoor enclosure** (180MM X 99MM X 111MM) 
+* 2 x **British General plastic cable gland 20mm**
+* 1 x **British General plastic cable gland 25mm**
+* 4 x **M2 Nylon standoffs**
+* 4 x **M2 Nylon screws**
+* 4 x **M2 Nylon washers**
+* 4 x **M2 Nylon bolts**
+
+**Tools:**
+* 1 x **2mm Drill bit** 
+* 1 x **Countersink Drill bit**
+
+**Control Box Components:**
+* 1 x **Waterproof button box 22mm** (4 hole)
+* 2 x **22mm Momentary button arrow** (black background, white arrow) (LA38A-11BN) 
+* 1 x **22mm Self-Locking Red Emergency push button** (LA38A-11ZS) 
+* 1 x **22mm 2-position rotating switch** (LA38-11x/21) 
+
+---
+
+## ⚙️ Configuration Changes
+
+Before deploying the code, you'll need to modify the following substitutions within the ESPHome configuration file. These are crucial for your device's unique setup and security.
+
+```yaml
+# --- ESPHome Substitutions ---
+# Change these values to match your specific setup.
+# -----------------------------
+substitutions:
+  devicename: picow_garage         # Your desired device name
+  friendlyname: PiCOW_Garage       # A friendly name for Home Assistant
+
+  fallback_ssid: "<<ap_ssid_name>>" # Your Wi-Fi network SSID
+  fallback_ssid_password: "<<ap_ssid_password>>" # Your Wi-Fi network password
   
-  api_encryption_key: <<api_encryption>> <br>
-  ota_password: <<ota_password>><br>
-###########################################<br>
-<br><br>
-Running the esp code as is will produce the following controls and sensors on the default dashboard:
-<br>
+  api_encryption_key: "<<api_encryption>>" # Your ESPHome API encryption key
+  ota_password: "<<ota_password>>"     # OTA (Over-The-Air) update password
+```
+
+ Note: Replace the placeholder values (<<...>>) with your actual network credentials and security keys.
+
+---
+
+## 🏡 Home Assistant Integration
+Running the ESPHome code as is will automatically create the following controls and sensors on your default Home Assistant dashboard, providing immediate access to your garage door's status and controls:<br>
 ![Screenshot of a Home Assistant garage door entities.](https://github.com/thenextbutton/PiCOW-Garage/blob/main/_readme_images/home_assistant_garage_area_overview.png?raw=true)
-<br><br>
-In devices the following config and diagnostics are available:
-<br>
+
+Default Dashboard Entities
+Device Configuration & Diagnostics
+In the Home Assistant Devices section, you'll find comprehensive configuration and diagnostic information for your PiCOW Garage device:<br>
 ![Screenshot of a Home Assistant garage door entities.](https://github.com/thenextbutton/PiCOW-Garage/blob/main/_readme_images/home_assistant_garage_config_diagnostic.png?raw=true)<br><br>
-If using Apple Car Play, then it is possible via home assitant to publish the garage door cover to homekit to dispay the garage door controls when the car is near the home loation, just ensure Siri Suggestions is enabled:<br>
+
+---
+
+## 🚗 Apple CarPlay Integration
+If you use Apple CarPlay, you can publish the garage door cover entity to HomeKit via Home Assistant. This allows you to display the garage door controls directly in CarPlay when your car is near your home location. Ensure Siri Suggestions is enabled for this feature to work.
+
+Siri Suggestions in Dashboard
+Garage Door Controls in CarPlay
+Here's how the garage door controls appear in Apple CarPlay, showing both open and closing states:<br>
 ![Screenshot of Siri Suggesstions in Dashboard.](https://github.com/thenextbutton/PiCOW-Garage/blob/9af56f3565fba93c72edb1e208e576e03d3eb1d9/_readme_images/Siri_Suggestions_in_Dashboard.PNG?raw=true)<br><br>
+
+Garage Door Open:<br>
 ![Screenshot of Garage Door OPEN in Dashboard.](https://github.com/thenextbutton/PiCOW-Garage/blob/main/_readme_images/CarPlay_Garage_Door_Open.PNG?raw=true)<br><br>
+
+Garage Door Closing:<br>
 ![Screenshot of Garage Door CLOSING in Dashboard.](https://github.com/thenextbutton/PiCOW-Garage/blob/main/_readme_images/CarPlay_Garage_Door_Closing.PNG?raw=true)<br><br>
+
+---
+
+## ✨ Work in Progress
+This project is continuously evolving! Here are some features currently under active development or planned for future implementation:
+
+OLED SSD1306 Display Integration: Work is ongoing to fully integrate the OLED SSD1306 display for real-time status updates directly on the device.
+
+---
+
+## 🤝 Contributing
+Feel free to open an issue or submit a pull request if you have suggestions for improvements or encounter any bugs. Your contributions are welcome!
+
+---
+
+## 📄 License
