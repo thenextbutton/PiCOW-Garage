@@ -78,8 +78,11 @@ substitutions:
   devicename: picow_garage         # Your desired device name
   friendlyname: PiCOW_Garage       # A friendly name for Home Assistant
 
-  fallback_ssid: "<<ap_ssid_name>>" # Your Wi-Fi network SSID
-  fallback_ssid_password: "<<ap_ssid_password>>" # Your Wi-Fi network password
+  # These define the credentials for the Access Point (AP) the PiCOW will create
+  # if it cannot connect to your primary Wi-Fi network. This acts as a fallback
+  # for initial setup or troubleshooting.
+  fallback_ssid: "<<ap_ssid_name>>" # The SSID for the fallback Access Point
+  fallback_ssid_password: "<<ap_ssid_password>>" # The password for the fallback Access Point
   
   api_encryption_key: "<<api_encryption>>" # Your ESPHome API encryption key
   ota_password: "<<ota_password>>"     # OTA (Over-The-Air) update password
