@@ -2,6 +2,9 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
   devicename: picow_garage
   friendlyname: Pi COW
 
+  # These define the credentials for the Access Point (AP) the PiCOW will create
+  # if it cannot connect to your primary Wi-Fi network. This acts as a fallback
+  # for initial setup or troubleshooting.
   fallback_ssid: <<ap_ssid_name>>
   fallback_ssid_password: <<ap_ssid_password>>
   
