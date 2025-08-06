@@ -1,5 +1,15 @@
 # 🏡 PiCOW Garage: Home Assistant ESPHome Garage Door Opener
 
+[![Raspberry Pi Pico W](https://img.shields.io/badge/Raspberry%20Pi-Pico%20W-red?logo=raspberry-pi&logoColor=white)](https://www.raspberrypi.com/products/raspberry-pi-pico/)
+[![ESPHome 2024.12.4+](https://img.shields.io/badge/ESPHome-2024.12.4+-2097e3?logo=esphome&logoColor=white)](https://esphome.io/)
+![Apple CarPlay](https://img.shields.io/badge/Apple-CarPlay-silver?logo=apple&logoColor=white)
+[![GitHub last commit](https://img.shields.io/github/last-commit/thenextbutton/PiCOW-Garage)](https://github.com/thenextbutton/PiCOW-Garage/commits/main)
+[![GitHub Issues](https://img.shields.io/github/issues/thenextbutton/PiCOW-Garage)](https://github.com/thenextbutton/PiCOW-Garage/issues)
+[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/thenextbutton/PiCOW-Garage)](https://github.com/thenextbutton/PiCOW-Garage/pulls)
+[![GitHub Stars](https://img.shields.io/github/stars/thenextbutton/PiCOW-Garage?style=social)](https://github.com/thenextbutton/PiCOW-Garage/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/thenextbutton/PiCOW-Garage/blob/main/LICENSE)
+
+---
 This project demonstrates how to integrate a **Raspberry Pi Pico W** with **Home Assistant ESPHome** to create a smart garage door opener. It's a fun exploration of custom hardware and smart home automation! 
 
 ---
