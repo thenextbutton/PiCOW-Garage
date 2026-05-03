@@ -1,7 +1,7 @@
 # 🏡 PiCOW Garage: Home Assistant ESPHome Garage Door Opener
 
 [![Raspberry Pi Pico W](https://img.shields.io/badge/Raspberry%20Pi-Pico%20W-red?logo=raspberry-pi&logoColor=white)](https://www.raspberrypi.com/products/raspberry-pi-pico/)
-[![ESPHome 2024.12.4+](https://img.shields.io/badge/ESPHome-2024.12.4+-2097e3?logo=esphome&logoColor=white)](https://esphome.io/)
+[![ESPHome 2026.4.3+](https://img.shields.io/badge/ESPHome-2026.4.3+-2097e3?logo=esphome&logoColor=white)](https://esphome.io/)
 ![Apple CarPlay](https://img.shields.io/badge/Apple-CarPlay-silver?logo=apple&logoColor=white)
 [![GitHub last commit](https://img.shields.io/github/last-commit/thenextbutton/PiCOW-Garage)](https://github.com/thenextbutton/PiCOW-Garage/commits/main)
 [![GitHub Issues](https://img.shields.io/github/issues/thenextbutton/PiCOW-Garage)](https://github.com/thenextbutton/PiCOW-Garage/issues)
