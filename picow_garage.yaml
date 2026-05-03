@@ -235,11 +235,11 @@ binary_sensor:
 
 # https://esphome.io/components/binary_sensor/status.html
   - platform: status
-    name: ${devicename} Power Status
+    name: "Power Status"
     id: ${devicename}_power_status
 
   - platform: template
-    name: ${devicename} Car Presence
+    name: "Car Presence"
     device_class: presence
     id: ${devicename}_car_presence_status
     icon: "mdi:car"
@@ -253,7 +253,7 @@ binary_sensor:
 ###### START >> GARAGE DOOR OPEN/CLOSE CONTACT SENSOR(s) ######
 
   - platform: template
-    name: ${devicename} Position
+    name: "Position"
     id: ${devicename}_position
     device_class: garage_door
     lambda: |-
@@ -267,7 +267,7 @@ binary_sensor:
       }
 
   - platform: template
-    name: ${devicename} Status
+    name: "Status"
     id: ${devicename}_status
     device_class: problem
 
@@ -283,8 +283,8 @@ binary_sensor:
         pulldown: false
       inverted: true
     id: ${devicename}_open
-    internal: True
-    trigger_on_initial_state: True
+    internal: true
+    trigger_on_initial_state: true
     filters:
       - delayed_off: ${garage_door_debounce_time} ms
     on_state:
@@ -329,8 +329,8 @@ binary_sensor:
         pulldown: false
       inverted: true
     id: ${devicename}_closed
-    internal: True
-    trigger_on_initial_state: True
+    internal: true
+    trigger_on_initial_state: true
     filters:
       - delayed_off: ${garage_door_debounce_time} ms
     on_state:
@@ -377,7 +377,7 @@ binary_sensor:
         input: true
         pullup: true
       inverted: true
-    name: ${devicename} Control Box Open
+    name: "Control Box Open"
     id: ${devicename}_control_box_open
     filters:
       - delayed_on: ${contact_debounce_time}ms
@@ -401,7 +401,7 @@ binary_sensor:
         input: true
         pullup: true
       inverted: true # https://esphome.io/components/binary_sensor/gpio/#inverting-values
-    name: ${devicename} Control Box Close
+    name: "Control Box Close"
     id: ${devicename}_control_box_close
     filters:
       - delayed_on: ${contact_debounce_time} ms # https://esphome.io/components/binary_sensor/gpio/#debouncing-values
@@ -425,7 +425,7 @@ binary_sensor:
         input: true
         pullup: true
       inverted: true # https://esphome.io/components/binary_sensor/gpio/#inverting-values
-    name: ${devicename} Control Box Stop
+    name: "Control Box Stop"
     id: ${devicename}_control_box_stop
     filters:
       - delayed_on: 10ms # https://esphome.io/components/binary_sensor/gpio/#debouncing-values
@@ -462,7 +462,7 @@ binary_sensor:
         input: true
         pullup: true
       inverted: true # https://esphome.io/components/binary_sensor/gpio/#inverting-values
-    name: ${devicename} Control Box Enabled
+    name: "Control Box Enabled"
     id: ${devicename}_control_box_enabled
     filters:
       - delayed_on: 10ms # https://esphome.io/components/binary_sensor/gpio/#debouncing-values
@@ -488,7 +488,7 @@ switch:
 ###### START >> OUTPUTS TO GARAGE DOOR contact ######
 
   - platform: template
-    name: ${devicename} Open
+    name: "Open"
     icon: "mdi:arrow-up-bold"
     id: ${devicename}_contact_open
     lambda: |-
@@ -513,9 +513,15 @@ switch:
     turn_off_action:
       - switch.turn_off: ${devicename}_contact_open_internal
 
+  - platform: template
+    name: "Security Lockout"
+    id: security_lockout
+    icon: "mdi:garage-lock"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
 
   - platform: template
-    name: ${devicename} Close
+    name: "Close"
     icon: "mdi:arrow-down-bold"
     id: ${devicename}_contact_close
     lambda: |-
@@ -542,7 +548,7 @@ switch:
 
 
   - platform: template
-    name: ${devicename} Stop
+    name: "Stop"
     icon: "mdi:stop"
     id: ${devicename}_contact_stop
     lambda: |-
@@ -628,7 +634,7 @@ sensor:
     trigger_pin: 28
     echo_pin: 27
     timeout: 4.0m
-    name: ${devicename} Car Presence Distance Sensor
+    name: "Car Presence Distance Sensor"
     id: ${devicename}_car_presence_distance
     update_interval: ${car_presence_detect_time} ms
     unit_of_measurement: "m"
@@ -654,23 +660,23 @@ sensor:
 
   # https://esphome.io/components/sensor/dallas_temp.html
   - platform: dallas_temp
-    address: ${dallas_outdoor_temperature_sensor_address} # Sensor Address
-    name: ${devicename} Outdoor Temperature # Name of the Sensor
+    address: ${dallas_outdoor_temperature_sensor_address}
+    name: "Outdoor Temperature" 
     id: ${devicename}_dallas_outdoor_temperature
     update_interval: ${dallas_outdoor_temperature_update_interval}s
 
   - platform: dallas_temp
-    address: ${dallas_case_temperature_sensor_address} # Sensor Address
-    name: ${devicename} Case Temperature # Name of the Sensor
+    address: ${dallas_case_temperature_sensor_address}
+    name: "Case Temperature"
     id: ${devicename}_dallas_case_temperature
     update_interval: ${dallas_case_temperature_update_interval}s
 
   - platform: internal_temperature
-    name: ${devicename} Temperature
+    name: "Microcontroller Temperature"
     id: ${devicename}_temperature
 
   - platform: wifi_signal # Report the WiFi signal strength/RSSI in dB
-    name: ${devicename} WiFi Signal (dB)
+    name: "WiFi Signal (dB)"
     id: ${devicename}_wifi_signal_db
     update_interval: 30s
     icon: mdi:wifi
@@ -679,7 +685,7 @@ sensor:
 
   - platform: copy # Report the WiFi signal strength in %
     source_id: ${devicename}_wifi_signal_db
-    name: ${devicename} WiFi Signal Numeric (%)
+    name: "WiFi Signal Numeric (%)"
     id: ${devicename}_wifi_signal_percentage_numeric
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
@@ -699,7 +705,7 @@ sensor:
 # where uptime shows it has been on line for 136 years
 text_sensor:
   - platform: template
-    name: ${devicename} Uptime
+    name: "Uptime"
     id: ${devicename}_uptime
     icon: mdi:clock-start
     update_interval: 300s
@@ -716,6 +722,35 @@ text_sensor:
         return {"unknown"};
       }
 
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      id: ${devicename}_ip_address
+      icon: "mdi:ip-network"
+    ssid:
+      name: "SSID"
+      id: ${devicename}_ssid
+      icon: "mdi:wifi"
+    mac_address:
+      name: "MAC Address"
+      id: ${devicename}_mac_address
+      icon: "mdi:network"
+    bssid:
+      name: "Connected BSSID"
+      id: ${devicename}_bssid
+      icon: "mdi:router-wireless"
+      internal: true 
+    scan_results:
+      name: "Scan Results"
+      id: ${devicename}_scan_results
+      icon: "mdi:radar" 
+      internal: true
+    power_save_mode:
+      name: "Wifi Power Save Mode"
+      id: ${devicename}_power_save_mode
+      icon: "mdi:battery-leaf"
+      internal: true
+
   - platform: template
     id: ${devicename}_uptime_oled
     update_interval: 30s    # This is for the OLED display
@@ -730,7 +765,7 @@ text_sensor:
       return {buffer};
 
   - platform: template
-    name: "${devicename} WiFi Signal (%)"
+    name: "WiFi Signal (%)"
     id: ${devicename}_wifi_signal_percentage
     lambda: |-
       char buffer[8]; // Adjust buffer size if needed based on expected precision
@@ -741,22 +776,8 @@ text_sensor:
     entity_category: "diagnostic"
     internal: true
 
-  - platform: wifi_info
-    ip_address:
-      name: ${devicename} IP Address
-      id: ${devicename}_ip_address
-      icon: "mdi:ip-network"
-    ssid:
-      name: ${devicename} SSID
-      id: ${devicename}_ssid_connection
-      icon: "mdi:wifi"
-    mac_address:
-      name: ${devicename} MAC Address
-      id: ${devicename}_mac_address
-      icon: "mdi:network"
-
   - platform: template
-    name: ${devicename} OLED Information Display
+    name: "OLED Information Display"
     id: oled_info_text
     lambda: 'return id(oled_info_global);'
     update_interval: never
@@ -765,7 +786,7 @@ text_sensor:
 # Restart button
 button:
   - platform: restart
-    name: ${devicename} Restart
+    name: "Restart"
     id: ${devicename}_restart
     icon: "mdi:power"
     on_press:
@@ -776,7 +797,7 @@ button:
 # Home Assistant Cover
 cover:
   - platform: template
-    name: ${devicename} Garage Door
+    name: "Door"
     id: ${devicename}_cover
     device_class: garage
     lambda: |-
@@ -818,164 +839,195 @@ script: # https://esphome.io/components/script/
           id: garage_door_action_in_progress
           value: "false"
 
-  # script to handle the open sequence
+# script to handle the open sequence
   - id: open_door_script
     then:
-      - globals.set:
-          id: garage_door_action_in_progress
-          value: "true"
-      - globals.set:
-          id: oled_page
-          value: "0"
-      - switch.turn_off: ${devicename}_contact_close
-      - switch.turn_on: ${devicename}_contact_open
-      - globals.set:
-          id: oled_info_global
-          value: '"OPENING"'
-      - component.update: oled_info_text
-      - component.update: oled_display
-      - wait_until:
-          condition:
-            - binary_sensor.is_on: ${devicename}_open
-          timeout: ${garage_door_time}ms
       - if:
           condition:
-            - not:
-              - binary_sensor.is_on: ${devicename}_open
+            - switch.is_off: security_lockout
           then:
-            - script.execute: garage_door_timeout_script
-
-# close_door_script
-  - id: close_door_script
-    then:
-      - globals.set:
-          id: garage_door_action_in_progress
-          value: "true"
-      - globals.set:
-          id: oled_info_global
-          value: '"CLOSING"'
-      - globals.set:
-          id: oled_page
-          value: "0"
-      - component.update: oled_display
-      - if:
-          condition:
-            - lambda: 'return ${control_box_close_wait_enable} == 1;'
-          then:
-            - logger.log: "Executing close_door_script with a wait_until countdown"
-            - lambda: |-
-                id(countdown_start_time) = millis();
-                id(is_counting_down) = true;
-            - display.page.show: countdown_page
+            - globals.set:
+                id: garage_door_action_in_progress
+                value: "true"
+            - globals.set:
+                id: oled_page
+                value: "0"
+            - switch.turn_off: ${devicename}_contact_close
+            - switch.turn_on: ${devicename}_contact_open
             - globals.set:
                 id: oled_info_global
-                value: '"CLOSING SOON..."'
+                value: '"OPENING"'
             - component.update: oled_info_text
+            - component.update: oled_display
             - wait_until:
                 condition:
-                  - lambda: |-
-                      return (millis() - id(countdown_start_time)) >= ${control_box_close_wait_time};
-                timeout: ${control_box_close_wait_time}ms
-            - globals.set:
-                id: is_counting_down
-                value: "false"
+                  - binary_sensor.is_on: ${devicename}_open
+                timeout: ${garage_door_time}ms
             - if:
                 condition:
                   - not:
-                    - binary_sensor.is_on: ${devicename}_control_box_stop
+                    - binary_sensor.is_on: ${devicename}_open
                 then:
-                  - logger.log: "Executing close command after countdown"
-                  - switch.turn_off: ${devicename}_contact_open
-                  - switch.turn_on: ${devicename}_contact_close
-                  - globals.set:
-                      id: oled_info_global
-                      value: '"CLOSING"'
-                  - component.update: oled_info_text
-                  - component.update: oled_display
-                  - display.page.show: page_main
-                  - wait_until:
-                      condition:
-                        - binary_sensor.is_on: ${devicename}_closed
-                      timeout: ${garage_door_time}ms
-                  - if:
-                      condition:
-                        - not:
-                          - binary_sensor.is_on: ${devicename}_closed
-                      then:
-                        - script.execute: garage_door_timeout_script
-                else:
-                  - logger.log: "Close command cancelled by E-STOP"
-                  - globals.set:
-                      id: oled_info_global
-                      value: '"E-STOP"'
-                  - component.update: oled_info_text
-                  - component.update: oled_display
-                  - display.page.show: page_emergency_stop
+                  - script.execute: garage_door_timeout_script
           else:
-            - logger.log: "Close wait period disabled. Closing immediately."
-            - if:
-                condition:
-                  - not:
-                    - binary_sensor.is_on: ${devicename}_control_box_stop
-                then:
-                  - logger.log: "Executing close command"
-                  - switch.turn_off: ${devicename}_contact_open
-                  - switch.turn_on: ${devicename}_contact_close
-                  - globals.set:
-                      id: oled_info_global
-                      value: '"CLOSING"'
-                  - component.update: oled_info_text
-                  - component.update: oled_display
-                  - display.page.show: page_main
-                  - wait_until:
-                      condition:
-                        - binary_sensor.is_on: ${devicename}_closed
-                      timeout: ${garage_door_time}ms
-                  - if:
-                      condition:
-                        - not:
-                          - binary_sensor.is_on: ${devicename}_closed
-                      then:
-                        - script.execute: garage_door_timeout_script
-                else:
-                  - logger.log: "Close command cancelled by E-STOP"
-                  - globals.set:
-                      id: oled_info_global
-                      value: '"E-STOP"'
-                  - component.update: oled_info_text
-                  - component.update: oled_display
-                  - display.page.show: page_emergency_stop
+            # provide feedback that the door is locked
+            - globals.set:
+                id: oled_info_global
+                value: '"LOCKED"'
+            - component.update: oled_display
+            - logger.log: "Open command ignored: Security Lockout is active."
 
- 
-  - id: close_door_script_no_countdown
+# script to handle the close sequence
+  - id: close_door_script
     then:
-      - script.execute: set_action_in_progress_script
-      - globals.set:
-          id: oled_page
-          value: "0"
       - if:
           condition:
-            - not:
-              - binary_sensor.is_on: ${devicename}_control_box_stop
+            - switch.is_off: security_lockout
           then:
-            - logger.log: "Executing close command without countdown"
-            - switch.turn_off: ${devicename}_contact_open
-            - switch.turn_on: ${devicename}_contact_close
+            - globals.set:
+                id: garage_door_action_in_progress
+                value: "true"
             - globals.set:
                 id: oled_info_global
                 value: '"CLOSING"'
-            - component.update: oled_info_text
+            - globals.set:
+                id: oled_page
+                value: "0"
             - component.update: oled_display
-            - display.page.show: page_main
+            - if:
+                condition:
+                  - lambda: 'return ${control_box_close_wait_enable} == 1;'
+                then:
+                  - logger.log: "Executing close_door_script with a wait_until countdown"
+                  - lambda: |-
+                      id(countdown_start_time) = millis();
+                      id(is_counting_down) = true;
+                  - display.page.show: countdown_page
+                  - globals.set:
+                      id: oled_info_global
+                      value: '"CLOSING SOON..."'
+                  - component.update: oled_info_text
+                  - wait_until:
+                      condition:
+                        - lambda: |-
+                            return (millis() - id(countdown_start_time)) >= ${control_box_close_wait_time};
+                      timeout: ${control_box_close_wait_time}ms
+                  - globals.set:
+                      id: is_counting_down
+                      value: "false"
+                  - if:
+                      condition:
+                        - not:
+                          - binary_sensor.is_on: ${devicename}_control_box_stop
+                      then:
+                        - logger.log: "Executing close command after countdown"
+                        - switch.turn_off: ${devicename}_contact_open
+                        - switch.turn_on: ${devicename}_contact_close
+                        - globals.set:
+                            id: oled_info_global
+                            value: '"CLOSING"'
+                        - component.update: oled_info_text
+                        - component.update: oled_display
+                        - display.page.show: page_main
+                        - wait_until:
+                            condition:
+                              - binary_sensor.is_on: ${devicename}_closed
+                            timeout: ${garage_door_time}ms
+                        - if:
+                            condition:
+                              - not:
+                                - binary_sensor.is_on: ${devicename}_closed
+                            then:
+                              - script.execute: garage_door_timeout_script
+                      else:
+                        - logger.log: "Close command cancelled by E-STOP"
+                        - globals.set:
+                            id: oled_info_global
+                            value: '"E-STOP"'
+                        - component.update: oled_info_text
+                        - component.update: oled_display
+                        - display.page.show: page_emergency_stop
+                else:
+                  - logger.log: "Close wait period disabled. Closing immediately."
+                  - if:
+                      condition:
+                        - not:
+                          - binary_sensor.is_on: ${devicename}_control_box_stop
+                      then:
+                        - logger.log: "Executing close command"
+                        - switch.turn_off: ${devicename}_contact_open
+                        - switch.turn_on: ${devicename}_contact_close
+                        - globals.set:
+                            id: oled_info_global
+                            value: '"CLOSING"'
+                        - component.update: oled_info_text
+                        - component.update: oled_display
+                        - display.page.show: page_main
+                        - wait_until:
+                            condition:
+                              - binary_sensor.is_on: ${devicename}_closed
+                            timeout: ${garage_door_time}ms
+                        - if:
+                            condition:
+                              - not:
+                                - binary_sensor.is_on: ${devicename}_closed
+                            then:
+                              - script.execute: garage_door_timeout_script
+                      else:
+                        - logger.log: "Close command cancelled by E-STOP"
+                        - globals.set:
+                            id: oled_info_global
+                            value: '"E-STOP"'
+                        - component.update: oled_info_text
+                        - component.update: oled_display
+                        - display.page.show: page_emergency_stop
           else:
-            - logger.log: "Close command cancelled by E-STOP"
             - globals.set:
                 id: oled_info_global
-                value: '"E-STOP"'
-            - component.update: oled_info_text
+                value: '"LOCKED"'
             - component.update: oled_display
-            - display.page.show: page_emergency_stop
+            - logger.log: "Close command ignored: Security Lockout is active."
 
+
+  - id: close_door_script_no_countdown
+    then:
+      - if:
+          condition:
+            - switch.is_off: security_lockout
+          then:
+            - script.execute: set_action_in_progress_script
+            - globals.set:
+                id: oled_page
+                value: "0"
+            - if:
+                condition:
+                  - not:
+                    - binary_sensor.is_on: ${devicename}_control_box_stop
+                then:
+                  - logger.log: "Executing close command without countdown"
+                  - switch.turn_off: ${devicename}_contact_open
+                  - switch.turn_on: ${devicename}_contact_close
+                  - globals.set:
+                      id: oled_info_global
+                      value: '"CLOSING"'
+                  - component.update: oled_info_text
+                  - component.update: oled_display
+                  - display.page.show: page_main
+                else:
+                  - logger.log: "Close command cancelled by E-STOP"
+                  - globals.set:
+                      id: oled_info_global
+                      value: '"E-STOP"'
+                  - component.update: oled_info_text
+                  - component.update: oled_display
+                  - display.page.show: page_emergency_stop
+          else:
+            - globals.set:
+                id: oled_info_global
+                value: '"LOCKED"'
+            - component.update: oled_display
+            - logger.log: "Close (no-countdown) command ignored: Security Lockout is active."
+  
 
   - id: stop_door_script
     then:
@@ -1087,7 +1139,7 @@ font:
 i2c:
   sda: 12
   scl: 13
-  scan: True
+  scan: true
   frequency: 400kHz
 
 
@@ -1134,7 +1186,7 @@ display:
 
               it.printf(0, current_y, id(font1), "Status: %s", id(oled_info_global).c_str());
               current_y += line_spacing;
-              it.printf(0, current_y, id(font1), "Car Present: %s", (id(${devicename}_car_presence_status).state) ? "PRESENT" : "NO");
+              it.printf(0, current_y, id(font1), "Car Present: %s", (id(${devicename}_car_presence_status).state) ? "YES" : "NO");
               current_y += line_spacing;
               it.printf(0, current_y, id(font1), "Outdoor Temp: %.1f°C", id(${devicename}_dallas_outdoor_temperature).state);
               current_y += line_spacing;
@@ -1143,13 +1195,13 @@ display:
               int current_y = 0;
               int line_spacing = font1_height + 2;
 
-              it.printf(0, current_y, id(font1), "Device: %s", "${devicename}");
-              current_y += line_spacing;
-              it.printf(0, current_y, id(font1), "Uptime: %s", id(${devicename}_uptime_oled).state.c_str());
+              it.printf(0, current_y, id(font1), "SSID: %s", id(${devicename}_ssid).state.c_str());
               current_y += line_spacing;
               it.printf(0, current_y, id(font1), "IP: %s", id(${devicename}_ip_address).state.c_str());
               current_y += line_spacing;
               it.printf(0, current_y, id(font1), "Signal: %s", id(${devicename}_wifi_signal_percentage).state.c_str());
+              current_y += line_spacing;
+              it.printf(0, current_y, id(font1), "Uptime: %s", id(${devicename}_uptime_oled).state.c_str());
             } else if (id(oled_page) == 2) {
               int top_y = 0;
               int middle_y = (display_height / 2) - (font3_height / 2);
@@ -1190,5 +1242,3 @@ display:
             // Center the seconds digits exactly like the "CLOSING" text
             it.printf(display_width / 2, display_height / 2, id(font3), TextAlign::CENTER, "%02ds", seconds);
           }
-
-###### END >> OLED Display ######
