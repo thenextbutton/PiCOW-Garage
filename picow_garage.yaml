@@ -59,6 +59,10 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
   dallas_case_temperature_update_interval: "120"
 
   # Values for the OLED Display
+  oled_sda: "12"
+  oled_scl: "13"
+  oled_address: "0x3C"
+
   oled_display_initial_value: ${devicename}
 
   # How long, in milliseconds, to display each page
@@ -122,6 +126,7 @@ wifi:
   password: !secret wifi_password
   fast_connect: true
   power_save_mode: none
+  post_connect_roaming: true
 
   # Enable fallback hotspot in case wifi connection fails
   ap:
@@ -136,7 +141,6 @@ web_server:
 # https://esphome.io/components/captive_portal/
 captive_portal:
 
-
 # Get the time from Home Assistant to sync the onboard real-time clock.
 time:
 #  - platform: homeassistant
@@ -150,6 +154,7 @@ time:
         - logger.log: "Time synchronized. Resetting uptime sensor."
         - lambda: |-
             id(${devicename}_uptime_s).publish_state(0);
+
 output:
   # OnBoard Pico W LED
   - platform: gpio
@@ -176,21 +181,17 @@ interval:
       - output.turn_off: ${devicename}_External_LED
 
 # OLED Display Page Rotation
-# A more robust and scalable way to handle page rotation
   - interval: ${oled_page_rotation_time}ms
     then:
-      # ONLY rotate pages if:
-      # 1. Countdown is NOT active
-      # 2. Garage door action is NOT in progress
       - if:
           condition:
             and:
               - lambda: 'return !id(is_counting_down);'
               - lambda: 'return !id(garage_door_action_in_progress);'
           then:
-            - lambda: 'id(oled_page) = (id(oled_page) + 1) % 3;'
+            # Change the 3 to a 2 here
+            - lambda: 'id(oled_page) = (id(oled_page) + 1) % 2;'
             - component.update: oled_display
-            - component.update: oled_info_text
 
 
   # NEW: High-frequency update for the countdown page
@@ -289,7 +290,7 @@ binary_sensor:
       - delayed_off: ${garage_door_debounce_time} ms
     on_state:
       then:
-        # A new safety feature to act as a limit switch - Stop the door when it reaches its open position
+        # A Safety feature to act as a limit switch - Stop the door when it reaches its open position
         - if:
             condition:
               and:
@@ -367,7 +368,6 @@ binary_sensor:
 
 
 ###### START >> EXTERNAL CONTROL BOX INPUTS ######
-
 
 # GPI for remote button press to OPEN garage door
   - platform: gpio
@@ -492,60 +492,35 @@ switch:
     icon: "mdi:arrow-up-bold"
     id: ${devicename}_contact_open
     lambda: |-
-      if (id(${devicename}_contact_open_internal).state) {
-        return true;
-      } else {
-        return false;
-      }
+      return id(${devicename}_contact_open_internal).state;
     turn_on_action:
-      if:
-        condition:
-          - binary_sensor.is_off: ${devicename}_control_box_stop # Check to make sure the control box STOP is OFF
-        then:
-          - switch.turn_off: ${devicename}_contact_close_internal
-          - switch.turn_off: ${devicename}_contact_stop_internal
-          - delay: 50ms
-          - switch.turn_on: ${devicename}_contact_open_internal
-          - delay: ${contact_open_hold_time} ms # Hold the contact for XX ms
-          - switch.turn_off: ${devicename}_contact_open_internal
-        else:
-          - logger.log: "CANCEL OPEN - Control Box STOP ACTIVE !!"
+      - script.execute: open_door_script
     turn_off_action:
       - switch.turn_off: ${devicename}_contact_open_internal
-
-  - platform: template
-    name: "Security Lockout"
-    id: security_lockout
-    icon: "mdi:garage-lock"
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
 
   - platform: template
     name: "Close"
     icon: "mdi:arrow-down-bold"
     id: ${devicename}_contact_close
     lambda: |-
-      if (id(${devicename}_contact_close_internal).state) {
-        return true;
-      } else {
-        return false;
-      }
+      return id(${devicename}_contact_close_internal).state;
     turn_on_action:
-      if:
-        condition:
-          - binary_sensor.is_off: ${devicename}_control_box_stop # Check to make sure the control box STOP is OFF
-        then:
-          - switch.turn_off: ${devicename}_contact_open_internal
-          - switch.turn_off: ${devicename}_contact_stop_internal
-          - delay: 50ms
-          - switch.turn_on: ${devicename}_contact_close_internal
-          - delay: ${contact_close_hold_time} ms # Hold the contact for XX ms
-          - switch.turn_off: ${devicename}_contact_close_internal
-        else:
-          - logger.log: "CANCEL CLOSE - Control Box STOP ACTIVE !!"
+      - script.execute: close_door_script_no_countdown
     turn_off_action:
       - switch.turn_off: ${devicename}_contact_close_internal
 
+  - platform: template
+    name: "Security Lockout"
+    id: ${devicename}_security_lockout
+    icon: "mdi:garage-lock"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_off:
+      then:
+        - globals.set:
+            id: garage_door_action_in_progress
+            value: "false"
+        - script.execute: ${devicename}_garage_door_status_script
 
   - platform: template
     name: "Stop"
@@ -819,11 +794,9 @@ cover:
       - script.execute: stop_door_script
 
 
-
 ###### START >> Garage Door position logic ######
 
 script: # https://esphome.io/components/script/
-
 
 # Helper script to set in-progress to TRUE
   - id: set_action_in_progress_script
@@ -844,7 +817,7 @@ script: # https://esphome.io/components/script/
     then:
       - if:
           condition:
-            - switch.is_off: security_lockout
+            - switch.is_off: ${devicename}_security_lockout
           then:
             - globals.set:
                 id: garage_door_action_in_progress
@@ -877,23 +850,28 @@ script: # https://esphome.io/components/script/
             - component.update: oled_display
             - logger.log: "Open command ignored: Security Lockout is active."
 
+            - delay: 10s
+
+            - globals.set:
+                id: garage_door_action_in_progress
+                value: "false"
+            - component.update: oled_display
+
+            - script.execute: ${devicename}_garage_door_status_script
+
 # script to handle the close sequence
   - id: close_door_script
     then:
       - if:
           condition:
-            - switch.is_off: security_lockout
+            - switch.is_off: ${devicename}_security_lockout
           then:
             - globals.set:
                 id: garage_door_action_in_progress
                 value: "true"
             - globals.set:
-                id: oled_info_global
-                value: '"CLOSING"'
-            - globals.set:
                 id: oled_page
                 value: "0"
-            - component.update: oled_display
             - if:
                 condition:
                   - lambda: 'return ${control_box_close_wait_enable} == 1;'
@@ -912,9 +890,19 @@ script: # https://esphome.io/components/script/
                         - lambda: |-
                             return (millis() - id(countdown_start_time)) >= ${control_box_close_wait_time};
                       timeout: ${control_box_close_wait_time}ms
+                  
+                  # --- RAPID UI TRANSITION START ---
+                  # These lines execute the millisecond the timer hits 0
                   - globals.set:
                       id: is_counting_down
                       value: "false"
+                  - globals.set:
+                      id: oled_info_global
+                      value: '"CLOSING"'
+                  - display.page.show: page_main
+                  - component.update: oled_display
+                  # --- RAPID UI TRANSITION END ---
+
                   - if:
                       condition:
                         - not:
@@ -923,12 +911,6 @@ script: # https://esphome.io/components/script/
                         - logger.log: "Executing close command after countdown"
                         - switch.turn_off: ${devicename}_contact_open
                         - switch.turn_on: ${devicename}_contact_close
-                        - globals.set:
-                            id: oled_info_global
-                            value: '"CLOSING"'
-                        - component.update: oled_info_text
-                        - component.update: oled_display
-                        - display.page.show: page_main
                         - wait_until:
                             condition:
                               - binary_sensor.is_on: ${devicename}_closed
@@ -944,7 +926,6 @@ script: # https://esphome.io/components/script/
                         - globals.set:
                             id: oled_info_global
                             value: '"E-STOP"'
-                        - component.update: oled_info_text
                         - component.update: oled_display
                         - display.page.show: page_emergency_stop
                 else:
@@ -955,14 +936,13 @@ script: # https://esphome.io/components/script/
                           - binary_sensor.is_on: ${devicename}_control_box_stop
                       then:
                         - logger.log: "Executing close command"
-                        - switch.turn_off: ${devicename}_contact_open
-                        - switch.turn_on: ${devicename}_contact_close
                         - globals.set:
                             id: oled_info_global
                             value: '"CLOSING"'
-                        - component.update: oled_info_text
-                        - component.update: oled_display
                         - display.page.show: page_main
+                        - component.update: oled_display
+                        - switch.turn_off: ${devicename}_contact_open
+                        - switch.turn_on: ${devicename}_contact_close
                         - wait_until:
                             condition:
                               - binary_sensor.is_on: ${devicename}_closed
@@ -978,22 +958,27 @@ script: # https://esphome.io/components/script/
                         - globals.set:
                             id: oled_info_global
                             value: '"E-STOP"'
-                        - component.update: oled_info_text
                         - component.update: oled_display
                         - display.page.show: page_emergency_stop
           else:
+            # Provide feedback that the door is locked
             - globals.set:
                 id: oled_info_global
                 value: '"LOCKED"'
             - component.update: oled_display
             - logger.log: "Close command ignored: Security Lockout is active."
+            - delay: 10s
+            - globals.set:
+                id: garage_door_action_in_progress
+                value: "false"
+            - script.execute: ${devicename}_garage_door_status_script
 
 
   - id: close_door_script_no_countdown
     then:
       - if:
           condition:
-            - switch.is_off: security_lockout
+            - switch.is_off: ${devicename}_security_lockout
           then:
             - script.execute: set_action_in_progress_script
             - globals.set:
@@ -1137,11 +1122,9 @@ font:
 
 # https://esphome.io/components/i2c.html
 i2c:
-  sda: 12
-  scl: 13
+  sda: ${oled_sda}
+  scl: ${oled_scl}
   scan: true
-  frequency: 400kHz
-
 
 display:
   - platform: ssd1306_i2c
@@ -1149,96 +1132,63 @@ display:
     address: 0x3C
     id: oled_display
     pages:
-      - id: page_emergency_stop
-        lambda: |-
-          int display_width = it.get_width();
-          int display_height = it.get_height();
-          int font1_height = id(font1)->get_height();
-          int font3_height = id(font3)->get_height();
-
-          // Calculate vertical positions based on total height and font sizes
-          int line1_y = (display_height * 0.2) - (font1_height / 2);
-          int line2_y = (display_height * 0.5) - (font3_height / 2);
-          int line3_y = (display_height * 0.8) - (font1_height / 2);
-
-          // Use the calculated positions
-          it.print(display_width / 2, line1_y, id(font1), TextAlign::TOP_CENTER, "EMERGENCY STOP");
-          it.print(display_width / 2, line2_y, id(font3), TextAlign::TOP_CENTER, "ENABLED");
-          it.print(display_width / 2, line3_y, id(font1), TextAlign::TOP_CENTER, "RELEASE TO CLEAR");
-
+      # --- DASHBOARD PAGE ---
       - id: page_main
         lambda: |-
-          int display_width = it.get_width();
-          int display_height = it.get_height();
-          int font1_height = id(font1)->get_height();
-          int font3_height = id(font3)->get_height();
+          int w = it.get_width();
+          int h = it.get_height();
 
-          // NEW: High-Visibility Mode for Opening/Closing
+          // ZONE 1: HEADER
+          it.printf(0, 0, id(font1), "GARAGE: %s", id(oled_info_global).c_str());
+          it.line(0, 13, w, 13); 
+
+          // ZONE 2: DYNAMIC CONTENT
           if (id(garage_door_action_in_progress)) {
-            // Centers the "OPENING" or "CLOSING" text in font3 (large font)
-            it.print(display_width / 2, display_height / 2, id(font3), TextAlign::CENTER, id(oled_info_global).c_str());
+            it.print(w / 2, 34, id(font3), TextAlign::CENTER, id(oled_info_global).c_str());
           } 
-          // Normal Page Rotation (only runs when door is stationary)
           else {
             if (id(oled_page) == 0) {
-              int current_y = 0;
-              int line_spacing = font1_height + 2; 
-
-              it.printf(0, current_y, id(font1), "Status: %s", id(oled_info_global).c_str());
-              current_y += line_spacing;
-              it.printf(0, current_y, id(font1), "Car Present: %s", (id(${devicename}_car_presence_status).state) ? "YES" : "NO");
-              current_y += line_spacing;
-              it.printf(0, current_y, id(font1), "Outdoor Temp: %.1f°C", id(${devicename}_dallas_outdoor_temperature).state);
-              current_y += line_spacing;
-              it.printf(0, current_y, id(font1), "Case Temp: %.1f°C", id(${devicename}_dallas_case_temperature).state);
-            } else if (id(oled_page) == 1) {
-              int current_y = 0;
-              int line_spacing = font1_height + 2;
-
-              it.printf(0, current_y, id(font1), "SSID: %s", id(${devicename}_ssid).state.c_str());
-              current_y += line_spacing;
-              it.printf(0, current_y, id(font1), "IP: %s", id(${devicename}_ip_address).state.c_str());
-              current_y += line_spacing;
-              it.printf(0, current_y, id(font1), "Signal: %s", id(${devicename}_wifi_signal_percentage).state.c_str());
-              current_y += line_spacing;
-              it.printf(0, current_y, id(font1), "Uptime: %s", id(${devicename}_uptime_oled).state.c_str());
-            } else if (id(oled_page) == 2) {
-              int top_y = 0;
-              int middle_y = (display_height / 2) - (font3_height / 2);
-              int bottom_y = display_height - font1_height;
-
-              it.print(display_width / 2, top_y, id(font1), TextAlign::TOP_CENTER, "Door Status");
-              it.print(display_width / 2, middle_y, id(font3), TextAlign::TOP_CENTER, id(oled_info_global).c_str());
-              it.printf(0, bottom_y, id(font1), "Control Box: %s", (id(${devicename}_control_box_enabled).state) ? "Enabled" : "Disabled");
+              it.printf(0, 18, id(font1), "WiFi: %s", id(${devicename}_wifi_signal_percentage).state.c_str());
+              it.printf(0, 30, id(font1), "IP:   %s", id(${devicename}_ip_address).state.c_str());
+              it.printf(0, 42, id(font1), "Up:   %s", id(${devicename}_uptime_oled).state.c_str());
+            } 
+            else if (id(oled_page) == 1) {
+              it.printf(0, 18, id(font1), "Car:  %s", (id(${devicename}_car_presence_status).state) ? "PRESENT" : "AWAY");
+              it.printf(0, 30, id(font1), "Out:  %.1f°C", id(${devicename}_dallas_outdoor_temperature).state);
+              it.printf(0, 42, id(font1), "Box:  %.1f°C", id(${devicename}_dallas_case_temperature).state);
             }
           }
 
+          // ZONE 3: FOOTER
+          it.line(0, 52, w, 52); 
+          it.printf(0, 54, id(font1), "CTRL:%s", (id(${devicename}_control_box_enabled).state) ? "ON" : "OFF");
+          
+          if (id(${devicename}_security_lockout).state) {
+            it.print(w, 54, id(font1), TextAlign::TOP_RIGHT, "LOCKED");
+          } else {
+            it.print(w, 54, id(font1), TextAlign::TOP_RIGHT, "READY");
+          }
+
+      # --- AUTO-CLOSE COUNTDOWN PAGE ---
       - id: countdown_page
         lambda: |-
-          int display_width = it.get_width();
-          int display_height = it.get_height();
-          int font1_height = id(font1)->get_height();
+          int w = it.get_width();
+          it.print(w / 2, 5, id(font1), TextAlign::TOP_CENTER, "AUTO-CLOSING IN");
+          
+          unsigned long elapsed = millis() - id(countdown_start_time);
+          int remaining = (${control_box_close_wait_time} - elapsed) / 1000;
+          if (remaining < 0) remaining = 0;
+          
+          it.printf(w / 2, 32, id(font3), TextAlign::CENTER, "%02d secs", remaining);
+          
+          float progress = (float)remaining / (${control_box_close_wait_time} / 1000.0);
+          it.line(0, 60, (int)(w * progress), 60);
 
-          unsigned long now = millis();
-          unsigned long start = id(countdown_start_time);
-          unsigned long elapsed_time = (now > start) ? (now - start) : 0;
-
-          unsigned long remaining_time = (${control_box_close_wait_time} > elapsed_time)
-            ? (${control_box_close_wait_time} - elapsed_time)
-            : 0;
-
-          if (remaining_time < 1000) {
-            // Match page_main: Exact center using TextAlign::CENTER
-            it.print(display_width / 2, display_height / 2, id(font3), TextAlign::CENTER, "CLOSING");
-          } else if (remaining_time > 60000) {
-            it.print(display_width / 2, 0, id(font1), TextAlign::TOP_CENTER, "CLOSING IN:");
-            int total_seconds = remaining_time / 1000;
-            int minutes = total_seconds / 60;
-            int seconds = total_seconds % 60;
-            it.printf(display_width / 2, font1_height + 2, id(font3), TextAlign::TOP_CENTER, "%02dm %02ds", minutes, seconds);
-          } else {
-            it.print(display_width / 2, 0, id(font1), TextAlign::TOP_CENTER, "CLOSING IN:");
-            int seconds = remaining_time / 1000;
-            // Center the seconds digits exactly like the "CLOSING" text
-            it.printf(display_width / 2, display_height / 2, id(font3), TextAlign::CENTER, "%02ds", seconds);
-          }
+      # --- EMERGENCY STOP PAGE ---
+      - id: page_emergency_stop
+        lambda: |-
+          int w = it.get_width();
+          it.fill(COLOR_OFF); 
+          it.print(w / 2, 10, id(font2), COLOR_ON, TextAlign::TOP_CENTER, "!!! E-STOP !!!");
+          it.print(w / 2, 30, id(font3), COLOR_ON, TextAlign::TOP_CENTER, "HALTED");
+          it.print(w / 2, 50, id(font1), COLOR_ON, TextAlign::TOP_CENTER, "RELEASE TO RESET");
