@@ -79,25 +79,38 @@ substitutions: # https://esphome.io/guides/configuration-types.html#substitution
 esphome:
   name: ${devicename}
   min_version: 2026.4.3 # https://esphome.io/components/esphome/#minimum-esphome-version
-  on_boot: # https://esphome.io/components/esphome/#on-boot
-    priority: -100.0
+  
+  includes:
+    - <Arduino.h>
+
+  platformio_options:
+    board_build.f_cpu: 133000000L
+
+  on_boot:
+    priority: 800.0 
     then:
-      # Check if the control box STOP is ON
+      - delay: 500ms
       - if:
           condition:
-            binary_sensor.is_on: ${devicename}_control_box_stop
+            lambda: 'return digitalRead(${control_box_stop_pin}) == LOW;'
           then:
-            - logger.log: "BOOT: E-STOP is active—triggering STOP contact and OLED page"
+            - logger.log: "BOOT: E-STOP is active—skipping loading screen"
+            - lambda: |-
+                id(is_booting) = true;
+                id(stop_active) = true; 
             - switch.turn_on: ${devicename}_contact_stop
             - globals.set:
                 id: oled_info_global
                 value: '"E-STOP"'
             - display.page.show: page_emergency_stop
+            - component.update: oled_display
           else:
-            - logger.log: "BOOT: E-STOP is clear—showing main OLED page"
-            - display.page.show: page_main
-      - component.update: oled_info_text
-      - component.update: oled_display
+            - logger.log: "BOOT: E-STOP is clear—starting loading sequence"
+            - lambda: |-
+                id(is_booting) = true;
+                id(stop_active) = false;
+            - display.page.show: page_boot
+            - script.execute: boot_loading_script
 
 rp2040:
   board: rpipicow
@@ -136,6 +149,7 @@ wifi:
 # Enable a web server for the Captive Portal to function
 web_server:
   port: 80
+  version: 3
 
 # Enable the fallback portal if WiFi fails
 # https://esphome.io/components/captive_portal/
@@ -179,22 +193,32 @@ interval:
       - delay: 500ms
       - output.turn_off: ${devicename}_OnBoard_LED
       - output.turn_off: ${devicename}_External_LED
+  
+  - interval: 500ms
+    then:
+      - if:
+          condition:
+            lambda: 'return id(stop_active);'
+          then:
+            - component.update: oled_display
 
 # OLED Display Page Rotation
   - interval: ${oled_page_rotation_time}ms
     then:
-      - if:
-          condition:
-            and:
-              - lambda: 'return !id(is_counting_down);'
-              - lambda: 'return !id(garage_door_action_in_progress);'
-          then:
-            # Change the 3 to a 2 here
-            - lambda: 'id(oled_page) = (id(oled_page) + 1) % 2;'
-            - component.update: oled_display
+      - lambda: |-
+          if (id(is_booting)) return; 
+          if (id(stop_active)) return;
+          if (id(is_counting_down)) return;
+          if (id(garage_door_action_in_progress)) return;
+          
+          // Increment the page index
+          id(oled_page) = (id(oled_page) + 1) % 2;
+          
+          id(oled_display).show_page(page_main);
+          id(oled_display).update();
 
 
-  # NEW: High-frequency update for the countdown page
+# NEW: High-frequency update for the countdown page
   - interval: 100ms
     then:
       - if:
@@ -222,15 +246,28 @@ globals:
     type: int
     initial_value: "0"
 
-  # NEW: Global variable for the countdown
+  # Global variable for the countdown
   - id: countdown_start_time
     type: unsigned long
     initial_value: "0"
   
-  # NEW: Global variable to indicate if a countdown is in progress
+  # Global variable to indicate if a countdown is in progress
   - id: is_counting_down
     type: bool
     initial_value: "false"
+
+   # Global variables for the boot loading screen
+  - id: boot_progress
+    type: float
+    initial_value: "0.0"
+
+  - id: is_booting
+    type: bool
+    initial_value: "true"
+
+  - id: stop_active
+    type: bool
+    initial_value: "true"
 
 binary_sensor:
 
@@ -238,6 +275,7 @@ binary_sensor:
   - platform: status
     name: "Power Status"
     id: ${devicename}_power_status
+    icon: "mdi:power-plug"
 
   - platform: template
     name: "Car Presence"
@@ -256,6 +294,7 @@ binary_sensor:
   - platform: template
     name: "Position"
     id: ${devicename}_position
+    icon: "mdi:ruler"
     device_class: garage_door
     lambda: |-
       if (id(${devicename}_open).state) {
@@ -270,6 +309,7 @@ binary_sensor:
   - platform: template
     name: "Status"
     id: ${devicename}_status
+    icon: "mdi:list-status"
     device_class: problem
 
 # Door OPEN
@@ -290,7 +330,7 @@ binary_sensor:
       - delayed_off: ${garage_door_debounce_time} ms
     on_state:
       then:
-        # A Safety feature to act as a limit switch - Stop the door when it reaches its open position
+        # Stop the door when it reaches its open position
         - if:
             condition:
               and:
@@ -336,7 +376,7 @@ binary_sensor:
       - delayed_off: ${garage_door_debounce_time} ms
     on_state:
       then:
-        # A new safety feature to act as a limit switch - Stop the door when it reaches its closed position
+        # Stop the door when it reaches its closed position
         - if:
             condition:
               and:
@@ -379,6 +419,7 @@ binary_sensor:
       inverted: true
     name: "Control Box Open"
     id: ${devicename}_control_box_open
+    icon: "mdi:garage-open"
     filters:
       - delayed_on: ${contact_debounce_time}ms
     on_press:
@@ -403,6 +444,7 @@ binary_sensor:
       inverted: true # https://esphome.io/components/binary_sensor/gpio/#inverting-values
     name: "Control Box Close"
     id: ${devicename}_control_box_close
+    icon: "mdi:garage"
     filters:
       - delayed_on: ${contact_debounce_time} ms # https://esphome.io/components/binary_sensor/gpio/#debouncing-values
     on_press:
@@ -424,34 +466,41 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: true # https://esphome.io/components/binary_sensor/gpio/#inverting-values
+      inverted: true
     name: "Control Box Stop"
     id: ${devicename}_control_box_stop
+    icon: "mdi:garage-alert"
+    internal: false
     filters:
-      - delayed_on: 10ms # https://esphome.io/components/binary_sensor/gpio/#debouncing-values
+      - delayed_on: 10ms
     on_press:
-    # Notice there are no conditions, if I press STOP.. I want it to trigger the STOP Command.
-      - script.stop: open_door_script # E-STOP King - Immediately cancel the open script
-      - script.stop: close_door_script # E-STOP King - Immediately cancel the close script
+      - lambda: 'id(stop_active) = true;' # LOCK logic
+      - script.stop: open_door_script
+      - script.stop: close_door_script
       - switch.turn_on: ${devicename}_contact_stop
       - logger.log: "CONTROL BOX STOP PRESSED !!"
       - globals.set:
           id: oled_info_global
           value: '"E-STOP"'
       - display.page.show: page_emergency_stop
-      - component.update: oled_info_text
       - component.update: oled_display
-
+      
     on_release:
-      # CRITICAL BUG FIX: This action now explicitly turns OFF the stop switch.
-      # The `while` loop in the switch's `turn_on_action` was a blocking bug.
-      # By controlling the state from the binary sensor's `on_press` and `on_release`,
-      # we ensure the device remains responsive.
+      - lambda: 'id(stop_active) = false;' # UNLOCK logic
       - logger.log: "CONTROL BOX STOP RELEASED !!"
       - switch.turn_off: ${devicename}_contact_stop
-      - script.execute: ${devicename}_garage_door_status_script
-      - display.page.show: page_main
-      - component.update: oled_display
+     
+      - if:
+          condition:
+            lambda: 'return id(is_booting);'
+          then:
+            - logger.log: "Resuming interrupted boot sequence..."
+            - script.execute: boot_loading_script
+          else:
+            # Normal operation release
+            - script.execute: ${devicename}_garage_door_status_script
+            - display.page.show: page_main
+            - component.update: oled_display
 
 # GPI for remote switch to ENABLE garage door external control box
 # Also used for resetting the PiCOW, if pattern is matched
@@ -464,6 +513,7 @@ binary_sensor:
       inverted: true # https://esphome.io/components/binary_sensor/gpio/#inverting-values
     name: "Control Box Enabled"
     id: ${devicename}_control_box_enabled
+    icon: "mdi:toggle-switch"
     filters:
       - delayed_on: 10ms # https://esphome.io/components/binary_sensor/gpio/#debouncing-values
     on_multi_click: # https://esphome.io/components/binary_sensor/index.html#on-multi-click
@@ -533,9 +583,6 @@ switch:
         return false;
       }
     turn_on_action:
-      # CRITICAL BUG FIX: The original code used a "while" loop here which blocks the ESPHome
-      # main loop, making the device unresponsive. This has been replaced with a non-blocking
-      # action that simply turns on the internal GPIO switch.
       - switch.turn_off: ${devicename}_contact_open_internal
       - switch.turn_off: ${devicename}_contact_close_internal
       - delay: 50ms
@@ -638,6 +685,7 @@ sensor:
     address: ${dallas_outdoor_temperature_sensor_address}
     name: "Outdoor Temperature" 
     id: ${devicename}_dallas_outdoor_temperature
+    icon: "mdi:sun-thermometer-outline"
     update_interval: ${dallas_outdoor_temperature_update_interval}s
 
   - platform: dallas_temp
@@ -645,9 +693,11 @@ sensor:
     name: "Case Temperature"
     id: ${devicename}_dallas_case_temperature
     update_interval: ${dallas_case_temperature_update_interval}s
+    icon: "mdi:thermometer"
 
   - platform: internal_temperature
     name: "Microcontroller Temperature"
+    icon: "mdi:thermometer"
     id: ${devicename}_temperature
 
   - platform: wifi_signal # Report the WiFi signal strength/RSSI in dB
@@ -676,8 +726,6 @@ sensor:
 
 
 # Convert the Uptime to Days Hours Minutes Seconds
-# first duration is to get around an issue on startup
-# where uptime shows it has been on line for 136 years
 text_sensor:
   - platform: template
     name: "Uptime"
@@ -714,17 +762,15 @@ text_sensor:
       name: "Connected BSSID"
       id: ${devicename}_bssid
       icon: "mdi:router-wireless"
-      internal: true 
     scan_results:
       name: "Scan Results"
       id: ${devicename}_scan_results
-      icon: "mdi:radar" 
+      icon: "mdi:radar"
       internal: true
     power_save_mode:
       name: "Wifi Power Save Mode"
       id: ${devicename}_power_save_mode
-      icon: "mdi:battery-leaf"
-      internal: true
+      icon: "mdi:leaf"
 
   - platform: template
     id: ${devicename}_uptime_oled
@@ -754,16 +800,16 @@ text_sensor:
   - platform: template
     name: "OLED Information Display"
     id: oled_info_text
+    icon: "mdi:monitor-screenshot"
     lambda: 'return id(oled_info_global);'
     update_interval: never
-
 
 # Restart button
 button:
   - platform: restart
     name: "Restart"
     id: ${devicename}_restart
-    icon: "mdi:power"
+    icon: "mdi:power-cycle"
     on_press:
       then:
       - logger.log: "Restart Requested !!"
@@ -775,6 +821,7 @@ cover:
     name: "Door"
     id: ${devicename}_cover
     device_class: garage
+    icon: "mdi:garage"
     lambda: |-
       if (id(${devicename}_open).state) {
         return 1.0;
@@ -817,7 +864,10 @@ script: # https://esphome.io/components/script/
     then:
       - if:
           condition:
-            - switch.is_off: ${devicename}_security_lockout
+            # ONLY proceed if NOT booting AND NOT locked
+            - and:
+                - lambda: 'return !id(is_booting);'
+                - switch.is_off: ${devicename}_security_lockout
           then:
             - globals.set:
                 id: garage_door_action_in_progress
@@ -843,28 +893,36 @@ script: # https://esphome.io/components/script/
                 then:
                   - script.execute: garage_door_timeout_script
           else:
-            # provide feedback that the door is locked
-            - globals.set:
-                id: oled_info_global
-                value: '"LOCKED"'
-            - component.update: oled_display
-            - logger.log: "Open command ignored: Security Lockout is active."
-
-            - delay: 10s
-
-            - globals.set:
-                id: garage_door_action_in_progress
-                value: "false"
-            - component.update: oled_display
-
-            - script.execute: ${devicename}_garage_door_status_script
+            # Determine if it's blocked by Boot or Lockout
+            - if:
+                condition:
+                  - lambda: 'return id(is_booting);'
+                then:
+                  - logger.log: "Open command ignored: System is still booting."
+                  # We don't change the OLED here to avoid clobbering the loading bar
+                else:
+                  # It must be the Security Lockout
+                  - globals.set:
+                      id: oled_info_global
+                      value: '"LOCKED"'
+                  - component.update: oled_display
+                  - logger.log: "Open command ignored: Security Lockout is active."
+                  - delay: 10s
+                  - globals.set:
+                      id: garage_door_action_in_progress
+                      value: "false"
+                  - script.execute: ${devicename}_garage_door_status_script
 
 # script to handle the close sequence
+  # script to handle the close sequence
   - id: close_door_script
     then:
       - if:
           condition:
-            - switch.is_off: ${devicename}_security_lockout
+            # ONLY proceed if NOT booting AND NOT locked
+            - and:
+                - lambda: 'return !id(is_booting);'
+                - switch.is_off: ${devicename}_security_lockout
           then:
             - globals.set:
                 id: garage_door_action_in_progress
@@ -891,8 +949,6 @@ script: # https://esphome.io/components/script/
                             return (millis() - id(countdown_start_time)) >= ${control_box_close_wait_time};
                       timeout: ${control_box_close_wait_time}ms
                   
-                  # --- RAPID UI TRANSITION START ---
-                  # These lines execute the millisecond the timer hits 0
                   - globals.set:
                       id: is_counting_down
                       value: "false"
@@ -901,7 +957,6 @@ script: # https://esphome.io/components/script/
                       value: '"CLOSING"'
                   - display.page.show: page_main
                   - component.update: oled_display
-                  # --- RAPID UI TRANSITION END ---
 
                   - if:
                       condition:
@@ -961,18 +1016,25 @@ script: # https://esphome.io/components/script/
                         - component.update: oled_display
                         - display.page.show: page_emergency_stop
           else:
-            # Provide feedback that the door is locked
-            - globals.set:
-                id: oled_info_global
-                value: '"LOCKED"'
-            - component.update: oled_display
-            - logger.log: "Close command ignored: Security Lockout is active."
-            - delay: 10s
-            - globals.set:
-                id: garage_door_action_in_progress
-                value: "false"
-            - script.execute: ${devicename}_garage_door_status_script
-
+            # Determine if it's blocked by Boot or Lockout
+            - if:
+                condition:
+                  - lambda: 'return id(is_booting);'
+                then:
+                  - logger.log: "Close command ignored: System is still booting."
+                  # No OLED update here to preserve the loading screen progress
+                else:
+                  # Provide feedback that the door is locked
+                  - globals.set:
+                      id: oled_info_global
+                      value: '"LOCKED"'
+                  - component.update: oled_display
+                  - logger.log: "Close command ignored: Security Lockout is active."
+                  - delay: 10s
+                  - globals.set:
+                      id: garage_door_action_in_progress
+                      value: "false"
+                  - script.execute: ${devicename}_garage_door_status_script
 
   - id: close_door_script_no_countdown
     then:
@@ -1033,16 +1095,28 @@ script: # https://esphome.io/components/script/
                 id: ${devicename}_status
                 state: OFF
             - logger.log: "SCRIPT: Door Status CLOSED"
-            - globals.set:
-                id: oled_info_global
-                value: '"DOOR CLOSED"'
+            
+            # --- ADDED: Protect E-STOP text from being overwritten ---
+            - if:
+                condition:
+                  lambda: 'return !id(stop_active);'
+                then:
+                  - globals.set:
+                      id: oled_info_global
+                      value: '"DOOR CLOSED"'
+            
             - binary_sensor.template.publish:
                 id: ${devicename}_position
                 state: OFF
             - cover.template.publish:
                 id: ${devicename}_cover
                 state: CLOSED
-            - display.page.show: page_main
+            - if:
+                condition:
+                  lambda: 'return !id(is_booting) && !id(stop_active);'
+                then:
+                  - display.page.show: page_main
+
       - if:
           condition:
             and:
@@ -1053,16 +1127,28 @@ script: # https://esphome.io/components/script/
                 id: ${devicename}_status
                 state: OFF
             - logger.log: "SCRIPT: Door Status OPEN"
-            - globals.set:
-                id: oled_info_global
-                value: '"DOOR OPEN"'
+            
+            # --- ADDED: Protect E-STOP text from being overwritten ---
+            - if:
+                condition:
+                  lambda: 'return !id(stop_active);'
+                then:
+                  - globals.set:
+                      id: oled_info_global
+                      value: '"DOOR OPEN"'
+
             - binary_sensor.template.publish:
                 id: ${devicename}_position
                 state: ON
             - cover.template.publish:
                 id: ${devicename}_cover
                 state: OPEN
-            - display.page.show: page_main
+            - if:
+                condition:
+                  lambda: 'return !id(is_booting) && !id(stop_active);'
+                then:
+                  - display.page.show: page_main
+
       - if:
           condition:
             or:
@@ -1075,15 +1161,35 @@ script: # https://esphome.io/components/script/
                   - lambda: 'return !id(garage_door_action_in_progress);'
           then:
             - logger.log: "SCRIPT: Door Status ERROR"
-            - globals.set:
-                id: oled_info_global
-                value: '"DOOR ERROR"'
+            
+            # --- ADDED: Protect E-STOP text from being overwritten ---
+            - if:
+                condition:
+                  lambda: 'return !id(stop_active);'
+                then:
+                  - globals.set:
+                      id: oled_info_global
+                      value: '"DOOR ERROR"'
+
             - binary_sensor.template.publish:
                id: ${devicename}_status
                state: ON
+
       - script.execute: set_action_complete_script
       - component.update: oled_info_text
-      - component.update: oled_display
+      
+      # Final update gate to keep the OLED on the E-STOP page
+      - if:
+          condition:
+            lambda: 'return !id(is_booting) && !id(stop_active);'
+          then:
+            - component.update: oled_display
+      # --- UPDATED GATE: Final Update check ---
+      - if:
+          condition:
+            lambda: 'return !id(is_booting) && !id(stop_active);'
+          then:
+            - component.update: oled_display
 
   # A new script to handle the timeout error
   - id: garage_door_timeout_script
@@ -1104,6 +1210,27 @@ script: # https://esphome.io/components/script/
 
 ###### END >> Garage Door position logic ######
 
+###### START >> Garage Door Boot loading screen ######
+
+  - id: boot_loading_script
+    then:
+      - lambda: 'id(is_booting) = true;'
+      - display.page.show: page_boot
+      - repeat:
+          count: 100 # Go all the way to 100%
+          then:
+            - lambda: 'id(boot_progress) += 0.01;'
+            - component.update: oled_display
+            - delay: 300ms # Total 30 seconds
+            
+      # No more wait_until here!
+      
+      - lambda: 'id(is_booting) = false;'
+      - logger.log: "Boot sequence finished. Local control enabled."
+      - display.page.show: page_main
+      - script.execute: ${devicename}_garage_door_status_script
+
+###### END >> Garage Door Boot loading screen ######
 
 ###### START >> OLED Display ######
 
@@ -1132,6 +1259,29 @@ display:
     address: 0x3C
     id: oled_display
     pages:
+
+     # --- BOOT LOADING PAGE ---
+      - id: page_boot
+        lambda: |-
+          int w = it.get_width();
+          int h = it.get_height();
+          
+          // Title
+          it.print(w / 2, 0, id(font2), TextAlign::TOP_CENTER, "PiCOW-Garage");
+          
+          // Subtitle / License
+          it.print(w / 2, 16, id(font1), TextAlign::TOP_CENTER, "Under MIT License");
+
+          // Progress Bar Outline
+          it.rectangle(10, 45, 108, 10);
+          
+          // Filling the Progress Bar
+          int bar_width = (int)(104 * id(boot_progress));
+          it.filled_rectangle(12, 47, bar_width, 6);
+
+          // Percentage Text
+          it.printf(w / 2, 28, id(font1), TextAlign::TOP_CENTER, "Initializing... %02d%%", (int)(id(boot_progress) * 100));
+
       # --- DASHBOARD PAGE ---
       - id: page_main
         lambda: |-
@@ -1169,26 +1319,46 @@ display:
             it.print(w, 54, id(font1), TextAlign::TOP_RIGHT, "READY");
           }
 
-      # --- AUTO-CLOSE COUNTDOWN PAGE ---
+      # --- CLOSE COUNTDOWN PAGE ---
       - id: countdown_page
         lambda: |-
           int w = it.get_width();
-          it.print(w / 2, 5, id(font1), TextAlign::TOP_CENTER, "AUTO-CLOSING IN");
+          int h = it.get_height();
           
+          // Header Text
+          it.print(w / 2, 2, id(font1), TextAlign::TOP_CENTER, "CLOSING IN");
+          
+          // Calculate Time Remaining
           unsigned long elapsed = millis() - id(countdown_start_time);
-          int remaining = (${control_box_close_wait_time} - elapsed) / 1000;
-          if (remaining < 0) remaining = 0;
+          int total_time_ms = ${control_box_close_wait_time};
+          int remaining_ms = total_time_ms - (int)elapsed;
+          if (remaining_ms < 0) remaining_ms = 0;
           
-          it.printf(w / 2, 32, id(font3), TextAlign::CENTER, "%02d secs", remaining);
+          // Large Countdown Text
+          it.printf(w / 2, 18, id(font3), TextAlign::TOP_CENTER, "%02d secs", (remaining_ms / 1000));
           
-          float progress = (float)remaining / (${control_box_close_wait_time} / 1000.0);
-          it.line(0, 60, (int)(w * progress), 60);
+          // Progress Bar Outline (Identical to page_boot)
+          it.rectangle(10, 45, 108, 10);
+          
+          // Filling the Progress Bar (Draining Logic)
+          float progress = (float)remaining_ms / (float)total_time_ms;
+          int bar_width = (int)(104 * progress);
+          
+          // Only draw if there is progress remaining to avoid drawing artifacts
+          if (bar_width > 0) {
+            it.filled_rectangle(12, 47, bar_width, 6);
+          }
 
       # --- EMERGENCY STOP PAGE ---
       - id: page_emergency_stop
         lambda: |-
           int w = it.get_width();
+          int h = it.get_height();
           it.fill(COLOR_OFF); 
-          it.print(w / 2, 10, id(font2), COLOR_ON, TextAlign::TOP_CENTER, "!!! E-STOP !!!");
-          it.print(w / 2, 30, id(font3), COLOR_ON, TextAlign::TOP_CENTER, "HALTED");
-          it.print(w / 2, 50, id(font1), COLOR_ON, TextAlign::TOP_CENTER, "RELEASE TO RESET");
+          
+          if ((millis() / 500) % 2 == 0) {
+            it.print(w / 2, h / 2, id(font2), COLOR_ON, TextAlign::CENTER, "!!! E-STOP !!!");
+          }
+          
+          // Instruction pinned to the bottom
+          it.print(w / 2, h - 5, id(font1), COLOR_ON, TextAlign::BASELINE_CENTER, "RELEASE TO RESET");
